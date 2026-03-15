@@ -2,6 +2,7 @@
 let currentGridSize = 4; // Default to 4x4
 const streamPlayers = {};
 let currentStreamId = null;
+let pendingYouTubePlayers = [];
 
 function initializeUI() {
     setGridLayout(currentGridSize);
@@ -149,38 +150,33 @@ function initializeStream(streamId, url, name = '') {
         youtubeContainer.style.width = '100%';
         youtubeContainer.style.height = '100%';
         container.appendChild(youtubeContainer);
-        
+
         // Initialize YouTube player
         if (typeof YT !== 'undefined' && YT.Player) {
             createYouTubePlayer(youtubeId, `youtube-${streamId}`, streamId);
         } else {
-            // Load YouTube API if not already loaded
+            // Queue this stream for when the API is ready
+            pendingYouTubePlayers.push({
+                youtubeId: youtubeId,
+                containerId: `youtube-${streamId}`,
+                streamId: streamId
+            });
+
+            // Load YouTube API if not already loading
             if (!document.getElementById('youtube-api')) {
                 const tag = document.createElement('script');
                 tag.id = 'youtube-api';
                 tag.src = 'https://www.youtube.com/iframe_api';
                 const firstScriptTag = document.getElementsByTagName('script')[0];
                 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-                
-                // Define callback for when API is ready
+
                 window.onYouTubeIframeAPIReady = function() {
-                    // Create players for all pending YouTube streams
-                    document.querySelectorAll('[id^="youtube-"]').forEach(element => {
-                        const elementId = element.id;
-                        const streamIdMatch = elementId.match(/youtube-stream(\d+)/);
-                        if (streamIdMatch) {
-                            const pendingStreamId = `stream${streamIdMatch[1]}`;
-                            const pendingYoutubeId = element.getAttribute('data-youtube-id');
-                            if (pendingYoutubeId) {
-                                createYouTubePlayer(pendingYoutubeId, elementId, pendingStreamId);
-                            }
-                        }
+                    pendingYouTubePlayers.forEach(pending => {
+                        createYouTubePlayer(pending.youtubeId, pending.containerId, pending.streamId);
                     });
+                    pendingYouTubePlayers = [];
                 };
             }
-            
-            // Mark this container as waiting for API
-            youtubeContainer.setAttribute('data-youtube-id', youtubeId);
         }
         return;
     }
@@ -325,11 +321,7 @@ async function handleFileSelect(event) {
 }
 
 function getCurrentGridSize() {
-    const container = document.getElementById('grid-container');
-    if (container.classList.contains('grid-2x2')) return 2;
-    if (container.classList.contains('grid-3x3')) return 3;
-    if (container.classList.contains('grid-4x4')) return 4;
-    return 2; // Default to 2x2
+    return currentGridSize;
 }
 
 function parseCSV(text) {
@@ -383,19 +375,33 @@ function loadStreamsConfig(streams) {
 }
 
 function downloadConfig() {
-    let config = '';
+    let config = 'Name,Stream URL\n';
+    let hasStreams = false;
     for (let i = 1; i <= currentGridSize * currentGridSize; i++) {
-        const urlInput = document.getElementById(`stream${i}-url`);
-        if (urlInput && urlInput.value.trim()) {
-            config += `${i},${urlInput.value.trim()}\n`;
+        const streamId = `stream${i}`;
+        const container = document.getElementById(`${streamId}-container`);
+        const player = streamPlayers[streamId];
+        if (!player) continue;
+
+        const nameOverlay = container ? container.querySelector('.stream-name-overlay') : null;
+        const name = nameOverlay ? nameOverlay.textContent : '';
+        let streamUrl = '';
+        if (player.url) {
+            streamUrl = player.url;
+        } else if (player.getVideoUrl) {
+            streamUrl = player.getVideoUrl();
+        }
+        if (streamUrl) {
+            config += `${name},${streamUrl}\n`;
+            hasStreams = true;
         }
     }
-    
-    if (!config) {
+
+    if (!hasStreams) {
         showNotification('No streams configured to save', true);
         return;
     }
-    
+
     const blob = new Blob([config], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -405,7 +411,7 @@ function downloadConfig() {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
-    
+
     showNotification('Configuration saved successfully');
 }
 
@@ -449,16 +455,26 @@ async function saveCurrentAsPreset(presetName) {
     try {
         // Collect current stream configurations
         const streams = [];
-        const containers = document.querySelectorAll('.stream-container');
-        containers.forEach(container => {
-            const streamId = container.id.replace('-container', '');
+        for (let i = 1; i <= currentGridSize * currentGridSize; i++) {
+            const streamId = `stream${i}`;
+            const container = document.getElementById(`${streamId}-container`);
+            if (!container) {
+                streams.push({ name: '', url: '' });
+                continue;
+            }
             const nameOverlay = container.querySelector('.stream-name-overlay');
             const name = nameOverlay ? nameOverlay.textContent : '';
             const player = streamPlayers[streamId];
-            const url = player ? player.url : '';
-            
+            let url = '';
+            if (player && player.url) {
+                // HLS player
+                url = player.url;
+            } else if (player && player.getVideoUrl) {
+                // YouTube player
+                url = player.getVideoUrl();
+            }
             streams.push({ name, url });
-        });
+        }
         
         // Save to server
         const response = await fetch(`/api/preset/${presetName}`, {
@@ -478,11 +494,9 @@ async function saveCurrentAsPreset(presetName) {
 }
 
 function clearAllStreams() {
-    const containers = document.querySelectorAll('.stream-container');
-    containers.forEach(container => {
-        const streamId = container.id.replace('-container', '');
-        stopStream(streamId);
-    });
+    for (let i = 1; i <= currentGridSize * currentGridSize; i++) {
+        stopStream(`stream${i}`);
+    }
 }
 
 // Initialize UI when the page loads

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}a_MultiView — Director Monitor{% endblock %}
+{% block body_class %}director-page{% endblock %}
+
+{% block body %}
+<div class="director-layout">
+
+    <!-- ═══ TOP BAR ═══ -->
+    <header class="top-bar">
+        <div class="top-bar-left">
+            <span class="logo">a_<span class="logo-accent">MV</span></span>
+            <span class="top-bar-divider"></span>
+            <span class="system-label" id="systemLabel">OFFLINE</span>
+        </div>
+        <div class="top-bar-center">
+            <button class="top-btn" id="btnAddStream" title="Add Source">+ SOURCE</button>
+            <button class="top-btn" id="btnPresets" title="Presets">PRESETS</button>
+            <button class="top-btn" id="btnSavePreset" title="Save Preset">SAVE</button>
+        </div>
+        <div class="top-bar-right">
+            <a href="{{ url_for('views.settings') }}" class="top-btn">SETTINGS</a>
+            <a href="{{ url_for('auth.logout') }}" class="top-btn top-btn-dim">LOGOUT</a>
+        </div>
+    </header>
+
+    <!-- ═══ MULTIVIEW GRID ═══ -->
+    <section class="multiview-section">
+        <div class="section-label">MULTIVIEW</div>
+        <div class="mv-grid" id="mvGrid">
+            <!-- Populated by JS -->
+        </div>
+    </section>
+
+    <!-- ═══ PGM / PVW MONITORS ═══ -->
+    <section class="monitor-section">
+        <div class="monitor pgm-monitor">
+            <div class="monitor-tally tally-pgm">PGM</div>
+            <div class="monitor-screen" id="pgmScreen">
+                <div class="monitor-placeholder">NO SIGNAL</div>
+            </div>
+            <div class="monitor-label-bar">
+                <span class="monitor-source-name" id="pgmLabel">—</span>
+            </div>
+        </div>
+        <div class="monitor pvw-monitor">
+            <div class="monitor-tally tally-pvw">PVW</div>
+            <div class="monitor-screen" id="pvwScreen">
+                <div class="monitor-placeholder">NO SIGNAL</div>
+            </div>
+            <div class="monitor-label-bar">
+                <span class="monitor-source-name" id="pvwLabel">—</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- ═══ CONTROL PANEL ═══ -->
+    <section class="control-panel">
+        <!-- Source buttons — PGM row -->
+        <div class="button-row">
+            <div class="row-label">PGM</div>
+            <div class="source-buttons pgm-buttons" id="pgmButtons">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+        <!-- Source buttons — PVW row -->
+        <div class="button-row">
+            <div class="row-label">PVW</div>
+            <div class="source-buttons pvw-buttons" id="pvwButtons">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+        <!-- Transition controls -->
+        <div class="transition-controls">
+            <button class="trans-btn btn-cut" id="btnCut">CUT</button>
+            <button class="trans-btn btn-auto" id="btnAuto">AUTO</button>
+            <div class="trans-indicator" id="transIndicator"></div>
+        </div>
+    </section>
+
+</div>
+
+<!-- ═══ ADD STREAM DIALOG ═══ -->
+<dialog id="streamDialog" class="hw-dialog">
+    <form id="streamForm">
+        <h3>ADD SOURCE</h3>
+        <div class="dialog-field">
+            <label for="dlgStreamName">Name</label>
+            <input type="text" id="dlgStreamName" placeholder="CAM 1" required>
+        </div>
+        <div class="dialog-field">
+            <label for="dlgStreamUrl">URL</label>
+            <input type="text" id="dlgStreamUrl" placeholder="https://..." required>
+        </div>
+        <div class="dialog-actions">
+            <button type="submit" class="hw-btn hw-btn-accent">ADD</button>
+            <button type="button" class="hw-btn" id="dlgStreamCancel">CANCEL</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ═══ EDIT STREAM DIALOG ═══ -->
+<dialog id="editStreamDialog" class="hw-dialog">
+    <form id="editStreamForm">
+        <h3>EDIT SOURCE</h3>
+        <input type="hidden" id="editStreamId">
+        <div class="dialog-field">
+            <label for="editStreamName">Name</label>
+            <input type="text" id="editStreamName" required>
+        </div>
+        <div class="dialog-field">
+            <label for="editStreamUrl">URL</label>
+            <input type="text" id="editStreamUrl" required>
+        </div>
+        <div class="dialog-actions">
+            <button type="submit" class="hw-btn hw-btn-accent">SAVE</button>
+            <button type="button" class="hw-btn hw-btn-danger" id="editStreamDelete">DELETE</button>
+            <button type="button" class="hw-btn" id="editStreamCancel">CANCEL</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ═══ PRESETS DIALOG ═══ -->
+<dialog id="presetsDialog" class="hw-dialog">
+    <h3>PRESETS</h3>
+    <div id="presetsList" class="presets-list"></div>
+    <div class="dialog-actions">
+        <button type="button" class="hw-btn" id="presetsClose">CLOSE</button>
+    </div>
+</dialog>
+
+<!-- ═══ SAVE PRESET DIALOG ═══ -->
+<dialog id="savePresetDialog" class="hw-dialog">
+    <form id="savePresetForm">
+        <h3>SAVE PRESET</h3>
+        <div class="dialog-field">
+            <label for="presetNameInput">Preset Name</label>
+            <input type="text" id="presetNameInput" placeholder="My Setup" required>
+        </div>
+        <div class="dialog-actions">
+            <button type="submit" class="hw-btn hw-btn-accent">SAVE</button>
+            <button type="button" class="hw-btn" id="savePresetCancel">CANCEL</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="{{ url_for('static', filename='js/director.js') }}"></script>
+{% endblock %}

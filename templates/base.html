@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}a_MultiView{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/director.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    {% block body %}{% endblock %}
+    {% block scripts %}{% endblock %}
+</body>
+</html>

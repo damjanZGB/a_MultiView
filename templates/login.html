@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}a_MultiView — Login{% endblock %}
+{% block body_class %}login-page{% endblock %}
+
+{% block body %}
+<div class="login-box">
+    <div class="logo-big">a_<span style="color: var(--accent);">MultiView</span></div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="login-error">{{ message }}</div>
+        {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token', '') }}">
+        <div class="dialog-field">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="dialog-field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="hw-btn hw-btn-accent">LOGIN</button>
+    </form>
+</div>
+{% endblock %}

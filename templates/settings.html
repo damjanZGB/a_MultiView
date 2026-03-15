@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}a_MultiView — Settings{% endblock %}
+{% block body_class %}settings-page{% endblock %}
+
+{% block body %}
+<div class="settings-container">
+    <div class="settings-header">
+        <h1>SETTINGS</h1>
+        <a href="{{ url_for('views.director') }}" class="hw-btn">BACK TO MONITOR</a>
+    </div>
+
+    <!-- Switcher Settings -->
+    <div class="settings-section">
+        <h2>Switcher</h2>
+        <div class="settings-row">
+            <span class="settings-label">Grid Size</span>
+            <div class="settings-value">
+                <select id="settGridSize">
+                    <option value="2">2 &times; 2</option>
+                    <option value="3">3 &times; 3</option>
+                    <option value="4">4 &times; 4</option>
+                </select>
+            </div>
+        </div>
+        <div class="settings-row">
+            <span class="settings-label">Transition Type</span>
+            <div class="settings-value">
+                <select id="settTransType">
+                    <option value="cut">Cut</option>
+                    <option value="mix">Mix</option>
+                    <option value="dip">Dip</option>
+                </select>
+            </div>
+        </div>
+        <div class="settings-row">
+            <span class="settings-label">Transition Duration (ms)</span>
+            <div class="settings-value">
+                <input type="number" id="settTransDuration" min="100" max="5000" step="100" value="500">
+            </div>
+        </div>
+        <div style="margin-top: 12px;">
+            <button class="hw-btn hw-btn-accent" id="btnSaveSettings">SAVE SETTINGS</button>
+        </div>
+    </div>
+
+    <!-- Stream Sources -->
+    <div class="settings-section">
+        <h2>Sources</h2>
+        <div id="streamList"></div>
+        <div style="margin-top: 12px;">
+            <button class="hw-btn hw-btn-accent" id="btnAddSource">+ ADD SOURCE</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Source Dialog (reused) -->
+<dialog id="settingsAddDialog" class="hw-dialog">
+    <form id="settingsAddForm">
+        <h3>ADD SOURCE</h3>
+        <div class="dialog-field">
+            <label for="settAddName">Name</label>
+            <input type="text" id="settAddName" placeholder="CAM 1" required>
+        </div>
+        <div class="dialog-field">
+            <label for="settAddUrl">URL</label>
+            <input type="text" id="settAddUrl" placeholder="https://..." required>
+        </div>
+        <div class="dialog-actions">
+            <button type="submit" class="hw-btn hw-btn-accent">ADD</button>
+            <button type="button" class="hw-btn" id="settAddCancel">CANCEL</button>
+        </div>
+    </form>
+</dialog>
+
+<script>
+    const API = (path, method = 'GET', body = null) => {
+        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        if (body) opts.body = JSON.stringify(body);
+        return fetch(`/api${path}`, opts).then(r => r.json());
+    };
+
+    async function init() {
+        // Load switcher settings
+        const settings = await API('/switcher/settings');
+        document.getElementById('settGridSize').value = settings.grid_size;
+        document.getElementById('settTransType').value = settings.transition_type;
+        document.getElementById('settTransDuration').value = settings.transition_duration;
+
+        // Load streams
+        await renderStreams();
+    }
+
+    async function renderStreams() {
+        const data = await API('/streams');
+        const list = document.getElementById('streamList');
+        list.innerHTML = '';
+
+        if (!data.streams?.length) {
+            list.innerHTML = '<div style="color: var(--hw-text-dim); padding: 12px; font-size: 0.8rem;">No sources configured</div>';
+            return;
+        }
+
+        data.streams.forEach(s => {
+            const item = document.createElement('div');
+            item.className = 'stream-list-item';
+            item.innerHTML = `
+                <div class="stream-info">
+                    <div class="stream-name">${esc(s.name)}</div>
+                    <div class="stream-url">${esc(s.url)}</div>
+                </div>
+                <div class="stream-actions">
+                    <button class="hw-btn" data-id="${s.id}" data-action="delete">DELETE</button>
+                </div>
+            `;
+            item.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+                if (confirm(`Delete "${s.name}"?`)) {
+                    await API(`/streams/${s.id}`, 'DELETE');
+                    await renderStreams();
+                }
+            });
+            list.appendChild(item);
+        });
+    }
+
+    // Save settings
+    document.getElementById('btnSaveSettings').addEventListener('click', async () => {
+        await API('/switcher/settings', 'PUT', {
+            grid_size: parseInt(document.getElementById('settGridSize').value),
+            transition_type: document.getElementById('settTransType').value,
+            transition_duration: parseInt(document.getElementById('settTransDuration').value),
+        });
+        alert('Settings saved');
+    });
+
+    // Add source
+    document.getElementById('btnAddSource').addEventListener('click', () => {
+        document.getElementById('settingsAddDialog').showModal();
+    });
+    document.getElementById('settAddCancel').addEventListener('click', () => {
+        document.getElementById('settingsAddDialog').close();
+    });
+    document.getElementById('settingsAddForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('settAddName').value.trim();
+        const url = document.getElementById('settAddUrl').value.trim();
+        if (!name || !url) return;
+        await API('/streams', 'POST', { name, url });
+        document.getElementById('settingsAddDialog').close();
+        document.getElementById('settAddName').value = '';
+        document.getElementById('settAddUrl').value = '';
+        await renderStreams();
+    });
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str;
+        return d.innerHTML;
+    }
+
+    init();
+</script>
+{% endblock %}

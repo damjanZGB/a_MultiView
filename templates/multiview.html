@@ -63,17 +63,10 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <script src="https://www.youtube.com/iframe_api"></script>
     <script src="{{ url_for('static', filename='multiview.js') }}"></script>
     <script>
-        // Initialize the UI when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeUI();
-        });
-    </script>
-    <script>
         // Pass preset name from Flask to JavaScript
-        const initialPreset = "{{ preset_name or '' }}";
+        const initialPreset = {{ (preset_name or '') | tojson }};
         if (initialPreset) {
             // Load preset after page is fully loaded
             document.addEventListener('DOMContentLoaded', () => {
