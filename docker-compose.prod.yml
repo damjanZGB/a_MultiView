@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  multiview:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: multiview
+    restart: unless-stopped
+    expose:
+      - "5030"
+    volumes:
+      - multiview_data:/app/instance
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASS=${ADMIN_PASS:-}
+    networks:
+      - supabase_network_octado
+
+networks:
+  supabase_network_octado:
+    external: true
+
+volumes:
+  multiview_data:
