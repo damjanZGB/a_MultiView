@@ -213,12 +213,9 @@ function initCellStream(cell, stream) {
             ensureYTApi();
         }
 
-        // YouTube: show activity meter (can't analyze cross-origin audio from iframe)
+        // Hide meter for YouTube (cross-origin blocks audio analysis)
         const meter = cell.querySelector('.stream-meter');
-        if (meter) {
-            meter.id = `meter-${stream.id}`;
-            meter.innerHTML = '<div class="meter-fill yt-activity" id="yt-meter-' + stream.id + '"></div>';
-        }
+        if (meter) meter.style.display = 'none';
     } else {
         const video = document.createElement('video');
         video.className = 'mv-cell-video';
@@ -252,31 +249,12 @@ function initCellStream(cell, stream) {
 // ── Health Monitor UI Updates ────────────────────────────────────
 
 function updateCellMeter(streamId, status) {
-    // HLS: update audio level bar
+    // HLS only: update audio level bar
     if (status.type === 'hls') {
         const fill = document.querySelector(`#meter-${streamId} .meter-fill`);
         if (!fill) return;
         const pct = Math.min(status.audioLevel * 100 * 2, 100);
         fill.style.height = `${pct}%`;
-    }
-
-    // YouTube: activity meter (no real audio data available from cross-origin iframe)
-    if (status.type === 'youtube') {
-        const fill = document.getElementById(`yt-meter-${streamId}`);
-        if (!fill) return;
-
-        fill.classList.remove('yt-live', 'yt-buffering', 'yt-error');
-
-        if (status.alarms.includes('NO SIGNAL') || status.alarms.includes('STALLED')) {
-            fill.classList.add('yt-error');
-            fill.style.height = '100%';
-        } else if (status.alarms.includes('BUFFERING')) {
-            fill.classList.add('yt-buffering');
-            fill.style.height = '50%';
-        } else {
-            // Stream is live and playing — animate a bouncing bar
-            fill.classList.add('yt-live');
-        }
     }
 }
 
@@ -286,12 +264,14 @@ function updateCellAlarm(streamId, status) {
     const text = alarm.querySelector('.alarm-text');
 
     if (status.alarms.length > 0) {
-        const priority = ['NO SIGNAL', 'STALLED', 'NO AUDIO'];
+        const priority = ['NO SIGNAL', 'STALLED', 'BUFFERING', 'NO AUDIO'];
         const top = priority.find(a => status.alarms.includes(a)) || status.alarms[0];
         text.textContent = top;
         alarm.classList.add('active');
+        // Yellow for buffering, red for everything else
+        alarm.classList.toggle('buffering', top === 'BUFFERING');
     } else {
-        alarm.classList.remove('active');
+        alarm.classList.remove('active', 'buffering');
         text.textContent = '';
     }
 }
