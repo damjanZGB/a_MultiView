@@ -53,17 +53,29 @@ async function api(path, method = 'GET', body = null) {
         },
     };
     if (body) opts.body = JSON.stringify(body);
-    const res = await fetch(`/api${path}`, opts);
-    if (res.status === 401) {
-        window.location.href = '/login';
+    try {
+        const res = await fetch(`/api${path}`, opts);
+        if (res.status === 401) {
+            window.location.href = '/login';
+            return null;
+        }
+        if (!res.ok) {
+            console.error(`API error: ${method} ${path} → ${res.status}`);
+            return null;
+        }
+        return res.json();
+    } catch (e) {
+        console.error(`API fetch error: ${method} ${path}`, e);
         return null;
     }
-    return res.json();
 }
 
 async function loadStreams() {
     const data = await api('/streams');
-    if (data) streams = data.streams || [];
+    if (data && Array.isArray(data.streams)) {
+        streams = data.streams;
+    }
+    // If API failed, keep the previous streams array intact
 }
 
 async function loadSwitcherState() {
@@ -389,11 +401,16 @@ function bindControls() {
     });
     document.getElementById('editStreamDelete').addEventListener('click', async () => {
         const id = document.getElementById('editStreamId').value;
-        if (id && confirm('Delete this source?')) {
-            await api(`/streams/${id}`, 'DELETE');
-            document.getElementById('editStreamDialog').close();
-            await loadStreams();
-            buildMultiview();
+        const name = document.getElementById('editStreamName').value;
+        if (id && confirm(`Delete source "${name}"?`)) {
+            const result = await api(`/streams/${id}`, 'DELETE');
+            if (result && result.status === 'deleted') {
+                document.getElementById('editStreamDialog').close();
+                await loadStreams();
+                buildMultiview();
+            } else {
+                alert('Failed to delete source. Please try again.');
+            }
         }
     });
     document.getElementById('editStreamForm').addEventListener('submit', async (e) => {
