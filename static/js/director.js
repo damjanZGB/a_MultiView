@@ -190,6 +190,8 @@ function initCellStream(cell, stream) {
     if (isYT) {
         const ytDiv = document.createElement('div');
         ytDiv.id = `mv-yt-${stream.id}`;
+        ytDiv.style.position = 'absolute';
+        ytDiv.style.inset = '0';
         ytDiv.style.width = '100%';
         ytDiv.style.height = '100%';
         cell.appendChild(ytDiv);
@@ -309,10 +311,20 @@ function createYTPlayer(streamId, containerId) {
     if (!ytId) return;
 
     const player = new YT.Player(containerId, {
+        width: '100%',
+        height: '100%',
         videoId: ytId,
-        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1 },
+        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1 },
         events: {
             onReady: (e) => {
+                // Ensure the iframe fills the cell
+                const iframe = e.target.getIframe();
+                if (iframe) {
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.position = 'absolute';
+                    iframe.style.inset = '0';
+                }
                 e.target.playVideo();
                 healthMonitor.registerYoutubeStream(streamId, e.target);
             },
