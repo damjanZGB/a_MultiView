@@ -90,5 +90,6 @@ def login() -> Response:
 def logout() -> Response:
     """Log out the current user."""
     logout_user()
-    session.clear()
-    return redirect(url_for("auth.login"))
+    resp = redirect(url_for("auth.login"))
+    resp.delete_cookie("session", path="/")
+    return resp
