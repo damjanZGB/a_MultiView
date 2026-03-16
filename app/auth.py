@@ -87,9 +87,8 @@ def login() -> Response:
 
 
 @auth_bp.route("/logout", methods=["GET", "POST"])
-@login_required
 def logout() -> Response:
-    """Log out the current user. Accepts POST (preferred) and GET for convenience."""
+    """Log out the current user."""
     logout_user()
     session.clear()
     return redirect(url_for("auth.login"))

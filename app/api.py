@@ -74,10 +74,11 @@ def tally_ws(ws: Any) -> None:
             msg = ws.receive(timeout=30)
             if msg is None:
                 break
-    except (ConnectionError, OSError):
-        pass  # Normal client disconnect
-    except Exception:
-        logger.exception("Unexpected WebSocket error in tally_ws")
+    except (ConnectionError, OSError, Exception) as e:
+        if "ConnectionClosed" in type(e).__name__ or isinstance(e, (ConnectionError, OSError)):
+            pass  # Normal client disconnect
+        else:
+            logger.exception("Unexpected WebSocket error in tally_ws")
     finally:
         with _ws_lock:
             if ws in _ws_clients:
