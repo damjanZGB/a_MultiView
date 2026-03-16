@@ -19,11 +19,17 @@ logger = logging.getLogger(__name__)
 
 @api_bp.before_request
 def _check_csrf() -> Response | None:
-    """Validate CSRF token on mutating API requests."""
+    """Validate CSRF token on mutating API requests (after auth)."""
     if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    # Skip CSRF check if user is not authenticated — login_required will handle it
+    if not current_user.is_authenticated:
         return None
     token = request.headers.get("X-CSRF-Token") or ""
     if not token or token != session.get("csrf_token"):
+        logger.warning(
+            "CSRF rejected: %s %s", request.method, request.path,
+        )
         return jsonify({"error": "CSRF token missing or invalid"}), 403
     return None
 
