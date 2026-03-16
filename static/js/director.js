@@ -7,6 +7,7 @@
 let streams = [];
 let switcherState = { grid_size: 4 };
 const hlsInstances = {};
+const ytPlayers = {};   // streamId → YT.Player
 let ytPendingQueue = [];
 let ytApiReady = false;
 let ws = null;
@@ -105,18 +106,26 @@ function connectWebSocket() {
 
 function buildMultiview() {
     const grid = document.getElementById('mvGrid');
-    grid.innerHTML = '';
     grid.className = `mv-grid grid-${switcherState.grid_size}`;
 
     const cellCount = switcherState.grid_size * switcherState.grid_size;
 
-    // Cleanup previous registrations
-    streams.forEach(s => healthMonitor.unregisterStream(s.id));
+    // Cleanup health monitors
+    Object.keys(healthMonitor.streams).forEach(id => healthMonitor.unregisterStream(id));
     // Destroy previous HLS instances
     Object.keys(hlsInstances).forEach(key => {
-        hlsInstances[key].destroy();
+        try { hlsInstances[key].destroy(); } catch (e) {}
         delete hlsInstances[key];
     });
+    // Destroy previous YT players
+    Object.keys(ytPlayers).forEach(id => {
+        try { ytPlayers[id].destroy(); } catch (e) {}
+        delete ytPlayers[id];
+    });
+    ytPendingQueue = [];
+
+    // Now safe to clear DOM
+    grid.innerHTML = '';
 
     for (let i = 0; i < cellCount; i++) {
         const stream = streams[i] || null;
@@ -318,11 +327,11 @@ function createYTPlayer(streamId, containerId) {
             modestbranding: 1,
             playsinline: 1,
             origin: window.location.origin,
-            // Force live edge playback
             live: 1,
         },
         events: {
             onReady: (e) => {
+                ytPlayers[streamId] = e.target;
                 const iframe = e.target.getIframe();
                 if (iframe) {
                     iframe.style.width = '100%';
