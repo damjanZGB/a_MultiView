@@ -66,6 +66,8 @@ def create_app(config: type = Config) -> Flask:
 
 def _seed_admin(app: Flask) -> None:
     """Create default admin user if none exists."""
+    from sqlalchemy.exc import IntegrityError
+
     from app.models import User
 
     if User.query.filter_by(role="admin").first() is None:
@@ -75,13 +77,21 @@ def _seed_admin(app: Flask) -> None:
         )
         admin.set_password(app.config["DEFAULT_ADMIN_PASS"])
         db.session.add(admin)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()  # Another worker already seeded
 
 
 def _seed_switcher_state() -> None:
     """Ensure the singleton SwitcherState row exists (H1)."""
+    from sqlalchemy.exc import IntegrityError
+
     from app.models import SwitcherState
 
     if SwitcherState.query.first() is None:
         db.session.add(SwitcherState(id=1, grid_size=4))
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
