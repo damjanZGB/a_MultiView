@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}a_MultiView{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/director.css') }}">
+    <meta name="csrf-token" content="{{ session.get('csrf_token', '') }}">
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
-    <meta name="csrf-token" content="{{ session.get('csrf_token', '') }}">
     {% block body %}{% endblock %}
     {% block scripts %}{% endblock %}
 </body>
