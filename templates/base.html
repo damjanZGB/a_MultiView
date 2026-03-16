@@ -8,6 +8,7 @@
     {% block head %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}">
+    <meta name="csrf-token" content="{{ session.get('csrf_token', '') }}">
     {% block body %}{% endblock %}
     {% block scripts %}{% endblock %}
 </body>

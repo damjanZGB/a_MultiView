@@ -73,8 +73,12 @@
 </dialog>
 
 <script>
+    function _csrfToken() {
+        const m = document.querySelector('meta[name="csrf-token"]');
+        return m ? m.getAttribute('content') : '';
+    }
     const API = (path, method = 'GET', body = null) => {
-        const opts = { method, headers: { 'Content-Type': 'application/json' } };
+        const opts = { method, headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': _csrfToken() } };
         if (body) opts.body = JSON.stringify(body);
         return fetch(`/api${path}`, opts).then(r => r.json());
     };

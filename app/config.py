@@ -8,11 +8,14 @@ from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Marker value used to detect when SECRET_KEY was not explicitly configured.
+_DEFAULT_SECRET = "change-me-in-production"
+
 
 class Config:
     """Base configuration."""
 
-    SECRET_KEY: str = os.environ.get("SECRET_KEY", "change-me-in-production")
+    SECRET_KEY: str = os.environ.get("SECRET_KEY", _DEFAULT_SECRET)
     SQLALCHEMY_DATABASE_URI: str = os.environ.get(
         "DATABASE_URL",
         f"sqlite:///{BASE_DIR / 'instance' / 'multiview.db'}",

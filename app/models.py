@@ -31,6 +31,16 @@ class User(UserMixin, db.Model):  # type: ignore[name-defined]
         return check_password_hash(self.password_hash, password)
 
 
+class LoginAttempt(db.Model):  # type: ignore[name-defined]
+    """Tracks failed login attempts for rate limiting (shared across workers)."""
+
+    __tablename__ = "login_attempts"
+
+    id: int = db.Column(db.Integer, primary_key=True)
+    ip: str = db.Column(db.String(45), nullable=False, index=True)
+    timestamp: float = db.Column(db.Float, nullable=False)
+
+
 class Stream(db.Model):  # type: ignore[name-defined]
     """A video source (HLS or YouTube URL)."""
 
@@ -40,7 +50,7 @@ class Stream(db.Model):  # type: ignore[name-defined]
     name: str = db.Column(db.String(120), nullable=False)
     url: str = db.Column(db.String(500), nullable=False)
     stream_type: str = db.Column(db.String(20), default="hls")  # hls | youtube
-    position: int = db.Column(db.Integer, default=0)
+    position: int = db.Column(db.Integer, default=0, index=True)
     is_active: bool = db.Column(db.Boolean, default=True)
     created_at: datetime = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc)

@@ -47,7 +47,7 @@ html, body {
 .director-layout {
     height: 100vh;
     display: grid;
-    grid-template-rows: 38px 1fr auto auto;
+    grid-template-rows: 38px 1fr auto;
     gap: 2px;
     background: #000;
 }
@@ -115,6 +115,15 @@ html, body {
 }
 .top-btn-dim { color: var(--hw-text-dim); }
 
+/* ── MAIN CONTENT — SPLIT LAYOUT ─────────────────────────────── */
+
+.main-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+    min-height: 0;
+}
+
 /* ── MULTIVIEW GRID ───────────────────────────────────────────── */
 
 .multiview-section {
@@ -158,6 +167,7 @@ html, body {
     transition: border-color 0.2s;
     min-height: 0;
     min-width: 0;
+    aspect-ratio: 16 / 9;
 }
 .mv-cell:hover { border-color: var(--hw-border-light); }
 .mv-cell.tally-pgm { border-color: var(--tally-pgm); box-shadow: inset 0 0 12px var(--tally-pgm-glow); }
@@ -168,7 +178,7 @@ html, body {
     top: 3px;
     left: 4px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.55rem;
+    font-size: 0.5rem;
     font-weight: 600;
     letter-spacing: 0.08em;
     color: #fff;
@@ -219,13 +229,84 @@ html, body {
     z-index: 2;
 }
 
-/* ── PGM / PVW MONITORS ──────────────────────────────────────── */
+/* ── AUDIO LEVEL METER ───────────────────────────────────────── */
 
-.monitor-section {
+.stream-meter {
+    position: absolute;
+    right: 1px;
+    top: 14px;
+    bottom: 14px;
+    width: 5px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 3;
+    border-radius: 1px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.meter-fill {
+    width: 100%;
+    min-height: 0;
+    transition: height 0.1s linear;
+    background: linear-gradient(to top, #20c040 0%, #20c040 65%, #e8e020 65%, #e8e020 85%, #e02020 85%, #e02020 100%);
+    border-radius: 1px;
+}
+
+.meter-na {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.3rem;
+    color: var(--hw-text-dim);
+    writing-mode: vertical-rl;
+    letter-spacing: 0.05em;
+}
+
+/* ── STREAM ALARM OVERLAY ────────────────────────────────────── */
+
+.stream-alarm {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 4;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 0;
+    background: rgba(224, 32, 32, 0.85);
+    animation: alarm-pulse 1.2s ease-in-out infinite;
+}
+
+.stream-alarm.active {
+    display: flex;
+}
+
+.alarm-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+@keyframes alarm-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* ── PGM / PVW MONITORS (right panel, stacked) ──────────────── */
+
+.monitors-panel {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
     gap: 2px;
-    height: 200px;
+    min-height: 0;
 }
 
 .monitor {
@@ -233,6 +314,7 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    min-height: 0;
 }
 
 .monitor-tally {
@@ -243,6 +325,7 @@ html, body {
     text-align: center;
     padding: 3px;
     text-transform: uppercase;
+    flex-shrink: 0;
 }
 .tally-pgm {
     background: var(--tally-pgm);
@@ -263,6 +346,7 @@ html, body {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 0;
 }
 
 .monitor-screen video,
@@ -276,7 +360,7 @@ html, body {
 
 .monitor-placeholder {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     color: var(--hw-text-dim);
     letter-spacing: 0.1em;
 }
@@ -285,6 +369,10 @@ html, body {
     background: var(--hw-surface);
     padding: 3px 8px;
     border-top: 1px solid var(--hw-border);
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .monitor-source-name {
@@ -293,6 +381,29 @@ html, body {
     font-weight: 500;
     color: var(--hw-text);
     letter-spacing: 0.08em;
+}
+
+/* Audio meter on PGM/PVW monitors */
+.monitor-meter {
+    position: absolute;
+    right: 6px;
+    top: 8px;
+    bottom: 8px;
+    width: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 3;
+    border-radius: 2px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.monitor-meter .meter-fill {
+    width: 100%;
+    min-height: 0;
+    transition: height 0.1s linear;
+    background: linear-gradient(to top, #20c040 0%, #20c040 65%, #e8e020 65%, #e8e020 85%, #e02020 85%, #e02020 100%);
+    border-radius: 2px;
 }
 
 /* ── CONTROL PANEL ────────────────────────────────────────────── */
@@ -752,7 +863,15 @@ dialog.hw-dialog h3 {
 
 /* ── RESPONSIVE ───────────────────────────────────────────────── */
 @media (max-width: 900px) {
-    .monitor-section { height: 160px; }
+    .main-content {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr auto;
+    }
+    .monitors-panel {
+        grid-template-rows: auto;
+        grid-template-columns: 1fr 1fr;
+        height: 200px;
+    }
     .control-panel { flex-wrap: wrap; gap: 8px; }
     .button-row { flex: auto; width: 100%; }
     .transition-controls { border-left: none; border-top: 1px solid var(--hw-border); padding-top: 8px; padding-left: 0; width: 100%; justify-content: center; }

@@ -12,9 +12,9 @@ services:
     volumes:
       - multiview_data:/app/instance
     environment:
-      - SECRET_KEY=${SECRET_KEY:-}
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
       - ADMIN_USER=${ADMIN_USER:-admin}
-      - ADMIN_PASS=${ADMIN_PASS:-}
+      - ADMIN_PASS=${ADMIN_PASS:?Set ADMIN_PASS in .env}
     networks:
       - supabase_network_octado
 

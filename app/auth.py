@@ -4,42 +4,39 @@ from __future__ import annotations
 
 import secrets
 import time
-import threading
 
 from flask import Blueprint, Response, flash, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
-from app.models import User
+from app.extensions import db
+from app.models import LoginAttempt, User
 
 auth_bp = Blueprint("auth", __name__)
 
-# ── Rate limiting (H2) ───────────────────────────────────────────
-_login_attempts: dict[str, tuple[int, float]] = {}
-_login_lock = threading.Lock()
 _MAX_ATTEMPTS = 5
 _LOCKOUT_SECONDS = 60
 
 
 def _is_rate_limited(ip: str) -> bool:
     """Return True if the IP has exceeded the login attempt threshold."""
-    with _login_lock:
-        attempts, last_time = _login_attempts.get(ip, (0, 0.0))
-        if attempts >= _MAX_ATTEMPTS and (time.monotonic() - last_time) < _LOCKOUT_SECONDS:
-            return True
-        if (time.monotonic() - last_time) >= _LOCKOUT_SECONDS:
-            _login_attempts.pop(ip, None)
-        return False
+    cutoff = time.time() - _LOCKOUT_SECONDS
+    # Clean up old entries
+    LoginAttempt.query.filter(LoginAttempt.timestamp < cutoff).delete()
+    db.session.commit()
+    count = LoginAttempt.query.filter_by(ip=ip).filter(
+        LoginAttempt.timestamp >= cutoff
+    ).count()
+    return count >= _MAX_ATTEMPTS
 
 
 def _record_failed_attempt(ip: str) -> None:
-    with _login_lock:
-        attempts, _ = _login_attempts.get(ip, (0, 0.0))
-        _login_attempts[ip] = (attempts + 1, time.monotonic())
+    db.session.add(LoginAttempt(ip=ip, timestamp=time.time()))
+    db.session.commit()
 
 
 def _clear_attempts(ip: str) -> None:
-    with _login_lock:
-        _login_attempts.pop(ip, None)
+    LoginAttempt.query.filter_by(ip=ip).delete()
+    db.session.commit()
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
@@ -74,6 +71,8 @@ def login() -> Response:
         if user and user.check_password(password):
             _clear_attempts(client_ip)
             login_user(user, remember=True)
+            # Regenerate CSRF token for API calls in the authenticated session
+            session["csrf_token"] = secrets.token_hex(32)
             # C1 — validate next param is a safe relative URL
             next_page = request.args.get("next", "")
             if not next_page or not next_page.startswith("/") or next_page.startswith("//"):
@@ -87,9 +86,10 @@ def login() -> Response:
     return render_template("login.html")
 
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["GET", "POST"])
 @login_required
 def logout() -> Response:
-    """Log out the current user."""
+    """Log out the current user. Accepts POST (preferred) and GET for convenience."""
     logout_user()
+    session.clear()
     return redirect(url_for("auth.login"))

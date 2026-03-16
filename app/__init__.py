@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from flask import Flask
 
-from app.config import BASE_DIR, Config
+from app.config import BASE_DIR, Config, _DEFAULT_SECRET
 from app.extensions import db, login_manager, sock
 
 
@@ -32,7 +32,10 @@ def create_app(config: type = Config) -> Flask:
 
     @login_manager.user_loader
     def load_user(user_id: str) -> User | None:
-        return db.session.get(User, int(user_id))
+        try:
+            return db.session.get(User, int(user_id))
+        except (ValueError, TypeError):
+            return None
 
     # Register blueprints
     from app.auth import auth_bp
@@ -49,8 +52,13 @@ def create_app(config: type = Config) -> Flask:
         _seed_admin(app)
         _seed_switcher_state()
 
-    # L1 — warn on default SECRET_KEY
-    if app.config["SECRET_KEY"] == "change-me-in-production":
+    # L1 — block startup if SECRET_KEY is default in production
+    if app.config["SECRET_KEY"] == _DEFAULT_SECRET:
+        if not app.debug:
+            raise RuntimeError(
+                "SECRET_KEY is not set. Refusing to start in production. "
+                "Set the SECRET_KEY environment variable."
+            )
         app.logger.warning("SECRET_KEY is set to the default value — change it in production!")
 
     return app

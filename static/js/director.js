@@ -11,6 +11,22 @@ let ytPendingQueue = [];
 let ytApiReady = false;
 let ws = null;
 
+// ── Health Monitor ──────────────────────────────────────────────
+
+const healthMonitor = new StreamHealthMonitor({
+    analysisInterval: 200,
+    stallThreshold: 5000,
+    silenceThreshold: 10000,
+});
+
+healthMonitor.onStatusChange((streamId, status) => {
+    updateCellMeter(streamId, status);
+    updateCellAlarm(streamId, status);
+    updateMonitorMeter(streamId, status);
+});
+
+healthMonitor.start();
+
 // ── Init ─────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -26,10 +42,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ── API Helpers ──────────────────────────────────────────────────
 
+function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    return meta ? meta.getAttribute('content') : '';
+}
+
 async function api(path, method = 'GET', body = null) {
     const opts = {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': getCsrfToken(),
+        },
     };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(`/api${path}`, opts);
@@ -80,6 +104,9 @@ function buildMultiview() {
 
     const cellCount = switcherState.grid_size * switcherState.grid_size;
 
+    // Unregister all streams from health monitor before rebuilding
+    streams.forEach(s => healthMonitor.unregisterStream(s.id));
+
     for (let i = 0; i < cellCount; i++) {
         const stream = streams[i] || null;
         const cell = document.createElement('div');
@@ -104,6 +131,25 @@ function buildMultiview() {
         num.textContent = i + 1;
         cell.appendChild(num);
 
+        // Audio meter
+        const meter = document.createElement('div');
+        meter.className = 'stream-meter';
+        meter.id = stream ? `meter-${stream.id}` : `meter-empty-${i}`;
+        const meterFill = document.createElement('div');
+        meterFill.className = 'meter-fill';
+        meterFill.style.height = '0%';
+        meter.appendChild(meterFill);
+        cell.appendChild(meter);
+
+        // Alarm overlay
+        const alarm = document.createElement('div');
+        alarm.className = 'stream-alarm';
+        alarm.id = stream ? `alarm-${stream.id}` : `alarm-empty-${i}`;
+        const alarmText = document.createElement('span');
+        alarmText.className = 'alarm-text';
+        alarm.appendChild(alarmText);
+        cell.appendChild(alarm);
+
         if (stream) {
             initCellStream(cell, stream);
         } else {
@@ -111,6 +157,8 @@ function buildMultiview() {
             empty.className = 'mv-cell-empty';
             empty.textContent = '+ ADD';
             cell.appendChild(empty);
+            // Hide meter on empty cells
+            meter.style.display = 'none';
         }
 
         // Click: set as PVW
@@ -152,12 +200,19 @@ function initCellStream(cell, stream) {
             ytPendingQueue.push({ streamId: stream.id, containerId: ytDiv.id });
             ensureYTApi();
         }
+
+        // Show N/A on meter for YouTube (no audio analysis possible)
+        const meter = cell.querySelector('.stream-meter');
+        if (meter) {
+            meter.innerHTML = '<div class="meter-na">YT</div>';
+        }
     } else {
         const video = document.createElement('video');
         video.className = 'mv-cell-video';
         video.muted = true;
         video.autoplay = true;
         video.playsInline = true;
+        video.crossOrigin = 'anonymous';
         cell.appendChild(video);
 
         if (Hls.isSupported()) {
@@ -168,6 +223,8 @@ function initCellStream(cell, stream) {
 
             hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 video.play().catch(() => {});
+                // Register with health monitor after playback starts
+                healthMonitor.registerHlsStream(stream.id, video, hls);
             });
 
             hls.on(Hls.Events.ERROR, (_e, data) => {
@@ -176,6 +233,54 @@ function initCellStream(cell, stream) {
                     else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
                 }
             });
+        }
+    }
+}
+
+// ── Health Monitor UI Updates ────────────────────────────────────
+
+function updateCellMeter(streamId, status) {
+    const meter = document.getElementById(`meter-${streamId}`);
+    if (!meter) return;
+    const fill = meter.querySelector('.meter-fill');
+    if (!fill) return;
+
+    if (status.type === 'youtube' || status.audioLevel < 0) return;
+
+    const pct = Math.min(status.audioLevel * 100 * 2, 100); // amplify for visibility
+    fill.style.height = `${pct}%`;
+}
+
+function updateCellAlarm(streamId, status) {
+    const alarm = document.getElementById(`alarm-${streamId}`);
+    if (!alarm) return;
+    const text = alarm.querySelector('.alarm-text');
+
+    if (status.alarms.length > 0) {
+        // Priority: NO SIGNAL > STALLED > NO AUDIO
+        const priority = ['NO SIGNAL', 'STALLED', 'NO AUDIO'];
+        const top = priority.find(a => status.alarms.includes(a)) || status.alarms[0];
+        text.textContent = top;
+        alarm.classList.add('active');
+    } else {
+        alarm.classList.remove('active');
+        text.textContent = '';
+    }
+}
+
+function updateMonitorMeter(streamId, status) {
+    // Update PGM meter if this stream is on PGM
+    if (switcherState.pgm?.id === streamId) {
+        const fill = document.getElementById('pgmMeterFill');
+        if (fill && status.audioLevel >= 0) {
+            fill.style.height = `${Math.min(status.audioLevel * 200, 100)}%`;
+        }
+    }
+    // Update PVW meter if this stream is on PVW
+    if (switcherState.pvw?.id === streamId) {
+        const fill = document.getElementById('pvwMeterFill');
+        if (fill && status.audioLevel >= 0) {
+            fill.style.height = `${Math.min(status.audioLevel * 200, 100)}%`;
         }
     }
 }
@@ -203,11 +308,14 @@ function createYTPlayer(streamId, containerId) {
     const ytId = extractYouTubeId(stream.url);
     if (!ytId) return;
 
-    new YT.Player(containerId, {
+    const player = new YT.Player(containerId, {
         videoId: ytId,
         playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1 },
         events: {
-            onReady: (e) => e.target.playVideo(),
+            onReady: (e) => {
+                e.target.playVideo();
+                healthMonitor.registerYoutubeStream(streamId, e.target);
+            },
             onError: (e) => console.error('YT error:', e),
         },
     });
@@ -238,12 +346,38 @@ function updateMonitor(type, streamData) {
     const screen = document.getElementById(`${type}Screen`);
     const label = document.getElementById(`${type}Label`);
 
-    // Clear existing
+    // Preserve the meter element
+    const meterId = `${type}Meter`;
+    const meterFillId = `${type}MeterFill`;
+
+    // Clear existing content except meter
+    const meter = document.getElementById(meterId);
     screen.innerHTML = '';
     label.textContent = '—';
 
+    // Re-add meter
+    if (meter) {
+        screen.appendChild(meter);
+    } else {
+        const newMeter = document.createElement('div');
+        newMeter.className = 'monitor-meter';
+        newMeter.id = meterId;
+        const newFill = document.createElement('div');
+        newFill.className = 'meter-fill';
+        newFill.id = meterFillId;
+        newMeter.appendChild(newFill);
+        screen.appendChild(newMeter);
+    }
+
+    // Reset meter
+    const fill = document.getElementById(meterFillId);
+    if (fill) fill.style.height = '0%';
+
     if (!streamData) {
-        screen.innerHTML = '<div class="monitor-placeholder">NO SIGNAL</div>';
+        const ph = document.createElement('div');
+        ph.className = 'monitor-placeholder';
+        ph.textContent = 'NO SIGNAL';
+        screen.appendChild(ph);
         return;
     }
 
@@ -264,6 +398,7 @@ function updateMonitor(type, streamData) {
         video.muted = true;
         video.autoplay = true;
         video.playsInline = true;
+        video.crossOrigin = 'anonymous';
         screen.appendChild(video);
 
         if (Hls.isSupported()) {

@@ -7,7 +7,7 @@ import logging
 import threading
 from typing import Any
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, abort, current_app, jsonify, request, session
 from flask_login import current_user, login_required
 
 from app.extensions import db, sock
@@ -15,6 +15,17 @@ from app.models import Preset, PresetItem, Stream, SwitcherState
 
 api_bp = Blueprint("api", __name__)
 logger = logging.getLogger(__name__)
+
+
+@api_bp.before_request
+def _check_csrf() -> Response | None:
+    """Validate CSRF token on mutating API requests."""
+    if request.method in ("GET", "HEAD", "OPTIONS"):
+        return None
+    token = request.headers.get("X-CSRF-Token") or ""
+    if not token or token != session.get("csrf_token"):
+        return jsonify({"error": "CSRF token missing or invalid"}), 403
+    return None
 
 # ── WebSocket clients for real-time tally ──────────────────────────
 _ws_clients: list[Any] = []
@@ -27,15 +38,15 @@ def _broadcast_state(state: SwitcherState | None = None) -> None:
         state = SwitcherState.get()
     # Resolve to_dict() outside the lock to avoid lazy-load queries under lock
     payload = json.dumps({"type": "switcher_state", "data": state.to_dict()})
-    stale: list[Any] = []
     with _ws_lock:
+        alive: list[Any] = []
         for ws in _ws_clients:
             try:
                 ws.send(payload)
+                alive.append(ws)
             except Exception:
-                stale.append(ws)
-        for ws in stale:
-            _ws_clients.remove(ws)
+                pass
+        _ws_clients[:] = alive
 
 
 @sock.route("/ws/tally")
@@ -57,8 +68,10 @@ def tally_ws(ws: Any) -> None:
             msg = ws.receive(timeout=30)
             if msg is None:
                 break
+    except (ConnectionError, OSError):
+        pass  # Normal client disconnect
     except Exception:
-        logger.exception("WebSocket error in tally_ws")  # H4
+        logger.exception("Unexpected WebSocket error in tally_ws")
     finally:
         with _ws_lock:
             if ws in _ws_clients:
@@ -175,17 +188,21 @@ def switcher_state() -> Response:
 
 
 def _set_bus(bus: str, stream_id: int | None) -> Response:
-    """Set a switcher bus (pgm or pvw) to the given stream. (M7)"""
-    if bus not in ("pgm", "pvw"):
-        raise ValueError(f"Invalid bus: {bus}")
+    """Set a switcher bus (pgm or pvw) to the given stream."""
     state = SwitcherState.get()
+    resolved_id = None
     if stream_id is not None:
         stream = db.session.get(Stream, int(stream_id))
         if not stream:
             return jsonify({"error": "Stream not found"}), 404
-        setattr(state, f"{bus}_stream_id", stream.id)
+        resolved_id = stream.id
+
+    if bus == "pgm":
+        state.pgm_stream_id = resolved_id
+    elif bus == "pvw":
+        state.pvw_stream_id = resolved_id
     else:
-        setattr(state, f"{bus}_stream_id", None)
+        return jsonify({"error": "Invalid bus"}), 400
 
     db.session.commit()
     _broadcast_state(state)
