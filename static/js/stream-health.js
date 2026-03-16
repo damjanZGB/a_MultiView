@@ -113,6 +113,7 @@ class StreamHealthMonitor {
             lastTimeUpdate: Date.now(),
             lastCurrentTime: 0,
             silenceStart: null,
+            bufferingStart: null,
             alarms: new Set(),
             _stateChangeHandler: null,
             _checkInterval: null,
@@ -123,20 +124,30 @@ class StreamHealthMonitor {
             try {
                 const ps = ytPlayer.getPlayerState();
                 const ct = ytPlayer.getCurrentTime();
+                const now = Date.now();
 
                 if (ps === YT.PlayerState.PLAYING) {
                     if (Math.abs(ct - state.lastCurrentTime) > 0.1) {
-                        state.lastTimeUpdate = Date.now();
+                        state.lastTimeUpdate = now;
                         state.alarms.delete('STALLED');
                         state.alarms.delete('NO SIGNAL');
                         state.alarms.delete('BUFFERING');
+                        state.bufferingStart = null;
                     }
                     state.lastCurrentTime = ct;
                 } else if (ps === YT.PlayerState.BUFFERING) {
-                    state.alarms.add('BUFFERING');
+                    if (!state.bufferingStart) state.bufferingStart = now;
+                    // Buffering > 2 minutes = STALLED
+                    if (now - state.bufferingStart > 120000) {
+                        state.alarms.delete('BUFFERING');
+                        state.alarms.add('STALLED');
+                    } else {
+                        state.alarms.add('BUFFERING');
+                    }
                 } else if (ps === -1 || ps === YT.PlayerState.ENDED) {
                     state.alarms.add('NO SIGNAL');
                     state.alarms.delete('BUFFERING');
+                    state.bufferingStart = null;
                 }
             } catch (e) { /* player not ready yet */ }
         }, 1000);

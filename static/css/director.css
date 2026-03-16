@@ -255,19 +255,18 @@ html, body {
     letter-spacing: 0.05em;
 }
 
-/* ── STREAM ALARM OVERLAY ────────────────────────────────────── */
+/* ── STREAM ALARM OVERLAY (full cell) ────────────────────────── */
 
 .stream-alarm {
     position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    inset: 0;
     z-index: 4;
     display: none;
     align-items: center;
     justify-content: center;
-    padding: 2px 0;
-    background: rgba(224, 32, 32, 0.85);
+    flex-direction: column;
+    gap: 4px;
+    background: rgba(224, 32, 32, 0.75);
     animation: alarm-pulse 1.2s ease-in-out infinite;
 }
 
@@ -277,16 +276,16 @@ html, body {
 
 .alarm-text {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.5rem;
+    font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.15em;
     color: #fff;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.6);
 }
 
 @keyframes alarm-pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    50% { opacity: 0.4; }
 }
 
 /* ── STREAM STATUS INDICATOR (YouTube) ────────────────────────── */
