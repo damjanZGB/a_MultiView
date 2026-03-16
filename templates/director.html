@@ -19,9 +19,7 @@
         </div>
         <div class="top-bar-right">
             <a href="{{ url_for('views.settings') }}" class="top-btn">SETTINGS</a>
-            <form method="POST" action="{{ url_for('auth.logout') }}" style="display:inline">
-                <button type="submit" class="top-btn top-btn-dim">LOGOUT</button>
-            </form>
+            <a href="{{ url_for('auth.logout') }}" class="top-btn top-btn-dim">LOGOUT</a>
         </div>
     </header>
 
