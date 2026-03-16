@@ -129,12 +129,14 @@ class StreamHealthMonitor {
                         state.lastTimeUpdate = Date.now();
                         state.alarms.delete('STALLED');
                         state.alarms.delete('NO SIGNAL');
+                        state.alarms.delete('BUFFERING');
                     }
                     state.lastCurrentTime = ct;
                 } else if (ps === YT.PlayerState.BUFFERING) {
-                    // buffering is tracked by stall timer in _tick
+                    state.alarms.add('BUFFERING');
                 } else if (ps === -1 || ps === YT.PlayerState.ENDED) {
                     state.alarms.add('NO SIGNAL');
+                    state.alarms.delete('BUFFERING');
                 }
             } catch (e) { /* player not ready yet */ }
         }, 1000);

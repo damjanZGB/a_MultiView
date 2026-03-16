@@ -47,7 +47,7 @@ html, body {
 .director-layout {
     height: 100vh;
     display: grid;
-    grid-template-rows: 38px 1fr auto;
+    grid-template-rows: 38px 1fr;
     gap: 2px;
     background: #000;
 }
@@ -115,34 +115,15 @@ html, body {
 }
 .top-btn-dim { color: var(--hw-text-dim); }
 
-/* ── MAIN CONTENT — SPLIT LAYOUT ─────────────────────────────── */
-
-.main-content {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2px;
-    min-height: 0;
-}
-
-/* ── MULTIVIEW GRID ───────────────────────────────────────────── */
+/* ── MULTIVIEW GRID (full width) ──────────────────────────────── */
 
 .multiview-section {
-    background: var(--hw-panel);
+    background: #000;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-}
-
-.section-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.55rem;
-    font-weight: 600;
-    letter-spacing: 0.15em;
-    color: var(--hw-text-dim);
-    padding: 4px 10px 2px;
-    text-transform: uppercase;
-    flex-shrink: 0;
+    min-height: 0;
 }
 
 .mv-grid {
@@ -308,275 +289,39 @@ html, body {
     50% { opacity: 0.5; }
 }
 
-/* ── PGM / PVW MONITORS (right panel, stacked) ──────────────── */
+/* ── STREAM STATUS INDICATOR (YouTube) ────────────────────────── */
 
-.monitors-panel {
-    display: grid;
-    grid-template-rows: 1fr 1fr;
-    gap: 2px;
-    min-height: 0;
-}
-
-.monitor {
-    background: var(--hw-panel);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-}
-
-.monitor-tally {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.15em;
-    text-align: center;
-    padding: 3px;
-    text-transform: uppercase;
-    flex-shrink: 0;
-}
-.tally-pgm {
-    background: var(--tally-pgm);
-    color: #fff;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
-}
-.tally-pvw {
-    background: var(--tally-pvw);
-    color: #fff;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
-}
-
-.monitor-screen {
-    flex: 1;
-    background: #000;
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 0;
-}
-
-.monitor-screen video,
-.monitor-screen iframe {
+.meter-status {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-    position: absolute;
-    inset: 0;
-}
-
-.monitor-placeholder {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    color: var(--hw-text-dim);
-    letter-spacing: 0.1em;
-}
-
-.monitor-label-bar {
-    background: var(--hw-surface);
-    padding: 3px 8px;
-    border-top: 1px solid var(--hw-border);
-    flex-shrink: 0;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    align-items: flex-end;
+    justify-content: center;
 }
 
-.monitor-source-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 500;
-    color: var(--hw-text);
-    letter-spacing: 0.08em;
-}
-
-/* Audio meter on PGM/PVW monitors */
-.monitor-meter {
-    position: absolute;
-    right: 6px;
-    top: 8px;
-    bottom: 8px;
-    width: 6px;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 3;
-    border-radius: 2px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column-reverse;
-}
-
-.monitor-meter .meter-fill {
-    width: 100%;
-    min-height: 0;
-    transition: height 0.1s linear;
-    background: linear-gradient(to top, #20c040 0%, #20c040 65%, #e8e020 65%, #e8e020 85%, #e02020 85%, #e02020 100%);
-    border-radius: 2px;
-}
-
-/* ── CONTROL PANEL ────────────────────────────────────────────── */
-
-.control-panel {
-    background: var(--hw-panel);
-    padding: 8px 12px 10px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    border-top: 1px solid var(--hw-border);
-}
-
-.button-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-}
-
-.row-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.55rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    color: var(--hw-text-dim);
-    width: 32px;
-    text-align: center;
-    flex-shrink: 0;
-}
-
-.source-buttons {
-    display: flex;
-    gap: 3px;
-    flex-wrap: wrap;
-}
-
-/* Source buttons — hardware style */
-.src-btn {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    min-width: 52px;
-    height: 32px;
-    padding: 0 8px;
-    border: 1px solid var(--hw-border);
-    background: var(--hw-surface);
-    color: var(--hw-text);
-    cursor: pointer;
-    transition: all 0.1s;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-}
-.src-btn:hover {
-    border-color: var(--hw-border-light);
-    background: var(--hw-border);
-}
-
-/* PGM row active state — RED */
-.pgm-buttons .src-btn.active {
-    background: var(--tally-pgm);
-    border-color: var(--tally-pgm);
-    color: #fff;
-    box-shadow: 0 0 8px var(--tally-pgm-glow);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-}
-
-/* PVW row active state — GREEN */
-.pvw-buttons .src-btn.active {
+.meter-status-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
     background: var(--tally-pvw);
-    border-color: var(--tally-pvw);
-    color: #fff;
-    box-shadow: 0 0 8px var(--tally-pvw-glow);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 0 4px var(--tally-pvw);
+    margin-bottom: 2px;
 }
 
-/* Context menu trigger */
-.src-btn-menu {
-    position: absolute;
-    top: 1px;
-    right: 1px;
-    width: 14px;
-    height: 14px;
-    font-size: 0.5rem;
-    background: none;
-    border: none;
-    color: var(--hw-text-dim);
-    cursor: pointer;
-    display: none;
-}
-.src-btn:hover .src-btn-menu { display: block; }
-
-/* Transition controls */
-.transition-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-left: 8px;
-    border-left: 1px solid var(--hw-border);
-    flex-shrink: 0;
+.meter-status-dot.buffering {
+    background: #e8e020;
+    box-shadow: 0 0 4px #e8e020;
+    animation: status-pulse 0.8s ease-in-out infinite;
 }
 
-.trans-btn {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    padding: 0 16px;
-    height: 36px;
-    border: 2px solid;
-    cursor: pointer;
-    transition: all 0.15s;
-    text-transform: uppercase;
-}
-
-.btn-cut {
-    background: var(--tally-pgm-dim);
-    border-color: var(--tally-pgm);
-    color: var(--tally-pgm);
-}
-.btn-cut:hover {
+.meter-status-dot.error {
     background: var(--tally-pgm);
-    color: #fff;
-    box-shadow: 0 0 12px var(--tally-pgm-glow);
-}
-.btn-cut:active {
-    transform: scale(0.95);
+    box-shadow: 0 0 4px var(--tally-pgm);
 }
 
-.btn-auto {
-    background: var(--accent-dim);
-    border-color: var(--accent);
-    color: var(--accent);
-}
-.btn-auto:hover {
-    background: var(--accent);
-    color: #fff;
-    box-shadow: 0 0 12px rgba(74, 158, 255, 0.35);
-}
-.btn-auto:active {
-    transform: scale(0.95);
-}
-
-.trans-indicator {
-    width: 8px;
-    height: 32px;
-    background: var(--hw-border);
-    border-radius: 4px;
-    overflow: hidden;
-    position: relative;
-}
-.trans-indicator.transitioning::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: var(--tally-pgm);
-    animation: trans-fill 0.5s ease forwards;
-}
-@keyframes trans-fill {
-    from { height: 0; }
-    to { height: 100%; }
+@keyframes status-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
 }
 
 /* ── DIALOGS ──────────────────────────────────────────────────── */
@@ -871,16 +616,6 @@ dialog.hw-dialog h3 {
 
 /* ── RESPONSIVE ───────────────────────────────────────────────── */
 @media (max-width: 900px) {
-    .main-content {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto;
-    }
-    .monitors-panel {
-        grid-template-rows: auto;
-        grid-template-columns: 1fr 1fr;
-        height: 200px;
-    }
-    .control-panel { flex-wrap: wrap; gap: 8px; }
-    .button-row { flex: auto; width: 100%; }
-    .transition-controls { border-left: none; border-top: 1px solid var(--hw-border); padding-top: 8px; padding-left: 0; width: 100%; justify-content: center; }
+    .mv-grid { gap: 1px; padding: 1px; }
+    .mv-cell-label { font-size: 0.4rem; }
 }

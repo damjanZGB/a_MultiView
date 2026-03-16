@@ -23,68 +23,10 @@
         </div>
     </header>
 
-    <!-- ═══ MAIN CONTENT: MULTIVIEW LEFT + MONITORS RIGHT ═══ -->
-    <div class="main-content">
-
-        <!-- LEFT: Input Sources Grid -->
-        <section class="multiview-section">
-            <div class="section-label">MULTIVIEW</div>
-            <div class="mv-grid" id="mvGrid">
-                <!-- Populated by JS -->
-            </div>
-        </section>
-
-        <!-- RIGHT: PGM (top) + PVW (bottom) -->
-        <div class="monitors-panel">
-            <div class="monitor pgm-monitor">
-                <div class="monitor-tally tally-pgm">PGM</div>
-                <div class="monitor-screen" id="pgmScreen">
-                    <div class="monitor-placeholder">NO SIGNAL</div>
-                    <div class="monitor-meter" id="pgmMeter">
-                        <div class="meter-fill" id="pgmMeterFill"></div>
-                    </div>
-                </div>
-                <div class="monitor-label-bar">
-                    <span class="monitor-source-name" id="pgmLabel">—</span>
-                </div>
-            </div>
-            <div class="monitor pvw-monitor">
-                <div class="monitor-tally tally-pvw">PVW</div>
-                <div class="monitor-screen" id="pvwScreen">
-                    <div class="monitor-placeholder">NO SIGNAL</div>
-                    <div class="monitor-meter" id="pvwMeter">
-                        <div class="meter-fill" id="pvwMeterFill"></div>
-                    </div>
-                </div>
-                <div class="monitor-label-bar">
-                    <span class="monitor-source-name" id="pvwLabel">—</span>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- ═══ CONTROL PANEL ═══ -->
-    <section class="control-panel">
-        <!-- Source buttons — PGM row -->
-        <div class="button-row">
-            <div class="row-label">PGM</div>
-            <div class="source-buttons pgm-buttons" id="pgmButtons">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-        <!-- Source buttons — PVW row -->
-        <div class="button-row">
-            <div class="row-label">PVW</div>
-            <div class="source-buttons pvw-buttons" id="pvwButtons">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-        <!-- Transition controls -->
-        <div class="transition-controls">
-            <button class="trans-btn btn-cut" id="btnCut">CUT</button>
-            <button class="trans-btn btn-auto" id="btnAuto">AUTO</button>
-            <div class="trans-indicator" id="transIndicator"></div>
+    <!-- ═══ MULTIVIEW GRID (full width) ═══ -->
+    <section class="multiview-section">
+        <div class="mv-grid" id="mvGrid">
+            <!-- Populated by JS -->
         </div>
     </section>
 
