@@ -213,10 +213,11 @@ function initCellStream(cell, stream) {
             ensureYTApi();
         }
 
-        // YouTube: show status dot instead of audio meter (can't analyze cross-origin audio)
+        // YouTube: show activity meter (can't analyze cross-origin audio from iframe)
         const meter = cell.querySelector('.stream-meter');
         if (meter) {
-            meter.innerHTML = '<div class="meter-status"><div class="meter-status-dot buffering" id="yt-status-' + stream.id + '"></div></div>';
+            meter.id = `meter-${stream.id}`;
+            meter.innerHTML = '<div class="meter-fill yt-activity" id="yt-meter-' + stream.id + '"></div>';
         }
     } else {
         const video = document.createElement('video');
@@ -253,25 +254,29 @@ function initCellStream(cell, stream) {
 function updateCellMeter(streamId, status) {
     // HLS: update audio level bar
     if (status.type === 'hls') {
-        const meter = document.getElementById(`meter-${streamId}`);
-        if (!meter) return;
-        const fill = meter.querySelector('.meter-fill');
+        const fill = document.querySelector(`#meter-${streamId} .meter-fill`);
         if (!fill) return;
         const pct = Math.min(status.audioLevel * 100 * 2, 100);
         fill.style.height = `${pct}%`;
     }
 
-    // YouTube: update status dot
+    // YouTube: activity meter (no real audio data available from cross-origin iframe)
     if (status.type === 'youtube') {
-        const dot = document.getElementById(`yt-status-${streamId}`);
-        if (!dot) return;
-        dot.className = 'meter-status-dot';
+        const fill = document.getElementById(`yt-meter-${streamId}`);
+        if (!fill) return;
+
+        fill.classList.remove('yt-live', 'yt-buffering', 'yt-error');
+
         if (status.alarms.includes('NO SIGNAL') || status.alarms.includes('STALLED')) {
-            dot.classList.add('error');
+            fill.classList.add('yt-error');
+            fill.style.height = '100%';
         } else if (status.alarms.includes('BUFFERING')) {
-            dot.classList.add('buffering');
+            fill.classList.add('yt-buffering');
+            fill.style.height = '50%';
+        } else {
+            // Stream is live and playing — animate a bouncing bar
+            fill.classList.add('yt-live');
         }
-        // default: green (healthy)
     }
 }
 
@@ -350,19 +355,10 @@ function createYTPlayer(streamId, containerId) {
                 healthMonitor.registerYoutubeStream(streamId, e.target);
             },
             onStateChange: (e) => {
-                // When buffering completes or video plays, seek to live edge
-                if (e.data === YT.PlayerState.PLAYING) {
-                    const dot = document.getElementById(`yt-status-${streamId}`);
-                    if (dot) { dot.className = 'meter-status-dot'; }
-                } else if (e.data === YT.PlayerState.BUFFERING) {
-                    const dot = document.getElementById(`yt-status-${streamId}`);
-                    if (dot) { dot.className = 'meter-status-dot buffering'; }
-                }
+                // Health monitor handles UI via polling
             },
             onError: (e) => {
                 console.error('YT error:', e.data);
-                const dot = document.getElementById(`yt-status-${streamId}`);
-                if (dot) { dot.className = 'meter-status-dot error'; }
             },
         },
     });
