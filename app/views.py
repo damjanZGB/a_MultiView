@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
-from flask import Blueprint, Response, render_template
+import secrets
+
+from flask import Blueprint, Response, render_template, session
 from flask_login import login_required
 
 views_bp = Blueprint("views", __name__)
+
+
+@views_bp.before_request
+def _ensure_csrf_token() -> None:
+    """Ensure a CSRF token exists in the session for every page view."""
+    if "csrf_token" not in session:
+        session["csrf_token"] = secrets.token_hex(32)
 
 
 @views_bp.route("/")
