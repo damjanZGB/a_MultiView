@@ -314,7 +314,8 @@ function createYTPlayer(streamId, containerId) {
         width: '100%',
         height: '100%',
         videoId: ytId,
-        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1 },
+        host: 'https://www.youtube-nocookie.com',
+        playerVars: { autoplay: 1, mute: 1, controls: 0, rel: 0, modestbranding: 1, playsinline: 1, origin: window.location.origin },
         events: {
             onReady: (e) => {
                 // Ensure the iframe fills the cell
@@ -399,7 +400,7 @@ function updateMonitor(type, streamData) {
         const ytId = extractYouTubeId(streamData.url);
         if (ytId) {
             const iframe = document.createElement('iframe');
-            iframe.src = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1`;
+            iframe.src = `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=1&controls=0&rel=0&modestbranding=1&origin=${encodeURIComponent(window.location.origin)}`;
             iframe.allow = 'autoplay; encrypted-media';
             iframe.allowFullscreen = true;
             iframe.style.border = 'none';
