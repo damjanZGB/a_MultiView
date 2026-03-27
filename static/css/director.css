@@ -259,7 +259,8 @@ body::after {
     position: relative;
     overflow: hidden;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     min-height: 0;
     /* Dithered/checkered bg pattern like old games */
     background-image:
@@ -273,17 +274,31 @@ body::after {
 }
 
 .mv-grid {
-    flex: 1;
     display: grid;
     gap: 6px;
     padding: 6px;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: repeat(4, 1fr);
-    min-height: 0;
+    /* Size the grid to fill available space while keeping cells 16:9.
+       JS will set --cols at runtime (2, 3, or 4). */
+    --cols: 4;
+    --rows: var(--cols);
+    grid-template-columns: repeat(var(--cols), 1fr);
+    grid-template-rows: repeat(var(--cols), 1fr);
+    /*
+     * The grid should be as large as possible within the container
+     * while every cell stays 16:9.  We let the cells' aspect-ratio
+     * drive the sizing: columns are fluid (1fr) and rows are auto
+     * so they're dictated by cell height.  Then we cap the grid's
+     * overall width/height so it doesn't overflow.
+     */
+    width: 100%;
+    height: 100%;
+    /* Use auto rows so aspect-ratio is respected */
+    grid-template-rows: none;
+    align-content: center;
 }
-.mv-grid.grid-2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
-.mv-grid.grid-3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
-.mv-grid.grid-4 { grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); }
+.mv-grid.grid-2 { --cols: 2; grid-template-columns: repeat(2, 1fr); }
+.mv-grid.grid-3 { --cols: 3; grid-template-columns: repeat(3, 1fr); }
+.mv-grid.grid-4 { --cols: 4; grid-template-columns: repeat(4, 1fr); }
 
 .mv-cell {
     background: #0A0A0A;
@@ -291,9 +306,8 @@ body::after {
     overflow: hidden;
     cursor: pointer;
     border: var(--px) solid var(--border-mid);
-    min-height: 0;
-    min-width: 0;
     aspect-ratio: 16 / 9;
+    width: 100%;
     box-shadow:
         inset var(--px-sm) var(--px-sm) 0 0 rgba(255, 255, 255, 0.05),
         inset calc(-1 * var(--px-sm)) calc(-1 * var(--px-sm)) 0 0 rgba(0, 0, 0, 0.5);
@@ -850,11 +864,30 @@ dialog.bit-dialog h3 {
 ::-webkit-scrollbar-thumb { background: var(--border-mid); border: var(--px-sm) solid var(--surface); }
 ::-webkit-scrollbar-thumb:hover { background: var(--border); }
 
-/* ── RESPONSIVE ──────────────────────────────────────────────── */
+/* ── RESPONSIVE — minimum target: 8" tablet (768px) ──────────── */
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
     .mv-grid { gap: 4px; padding: 4px; }
-    .mv-cell-label { font-size: 7px; }
-    .top-bar { padding: 0 8px; }
-    .bit-btn-sm { padding: 4px 8px; font-size: 7px; }
+    .mv-cell-label { font-size: 8px; padding: 3px 6px; }
+    .mv-cell-number { font-size: 7px; }
+    .top-bar { padding: 0 10px; }
+    .top-bar-left, .top-bar-center, .top-bar-right { gap: 8px; }
+    .bit-btn-sm { padding: 5px 10px; font-size: 7px; }
+    .logo { font-size: 12px; }
+}
+
+@media (max-width: 768px) {
+    .director-layout { grid-template-rows: 48px 1fr; }
+    .mv-grid { gap: 3px; padding: 3px; }
+    .mv-cell-label { font-size: 7px; padding: 2px 4px; }
+    .mv-cell-number { font-size: 6px; }
+    .top-bar { padding: 0 6px; }
+    .top-bar-left, .top-bar-center, .top-bar-right { gap: 4px; }
+    .bit-btn-sm { padding: 4px 6px; font-size: 6px; }
+    .logo { font-size: 10px; }
+    .user-label { display: none; }
+    .stream-meter { width: 4px; }
+
+    .login-box { width: 90vw; max-width: 420px; padding: 24px; }
+    .settings-container { padding: 16px; }
 }
