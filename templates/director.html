@@ -6,20 +6,21 @@
 <div class="director-layout">
 
     <!-- ═══ TOP BAR ═══ -->
-    <header class="top-bar">
+    <header class="top-bar pixel-border-bottom">
         <div class="top-bar-left">
             <span class="logo">a_<span class="logo-accent">MV</span></span>
             <span class="top-bar-divider"></span>
             <span class="system-label" id="systemLabel">OFFLINE</span>
         </div>
         <div class="top-bar-center">
-            <button class="top-btn" id="btnAddStream" title="Add Source">+ SOURCE</button>
-            <button class="top-btn" id="btnPresets" title="Presets">PRESETS</button>
-            <button class="top-btn" id="btnSavePreset" title="Save Preset">SAVE</button>
+            <button class="bit-btn bit-btn-sm" id="btnAddStream">+ SOURCE</button>
+            <button class="bit-btn bit-btn-sm" id="btnPresets">PRESETS</button>
+            <button class="bit-btn bit-btn-sm" id="btnSavePreset">SAVE</button>
         </div>
         <div class="top-bar-right">
-            <a href="{{ url_for('views.settings') }}" class="top-btn">SETTINGS</a>
-            <a href="{{ url_for('auth.logout') }}" class="top-btn top-btn-dim">LOGOUT</a>
+            <span class="user-label">{{ current_user.username }}</span>
+            <a href="{{ url_for('views.settings') }}" class="bit-btn bit-btn-sm">SETTINGS</a>
+            <a href="{{ url_for('auth.logout') }}" class="bit-btn bit-btn-sm bit-btn-dim">LOGOUT</a>
         </div>
     </header>
 
@@ -33,67 +34,85 @@
 </div>
 
 <!-- ═══ ADD STREAM DIALOG ═══ -->
-<dialog id="streamDialog" class="hw-dialog">
-    <form id="streamForm">
-        <h3>ADD SOURCE</h3>
-        <div class="dialog-field">
-            <label for="dlgStreamName">Name</label>
-            <input type="text" id="dlgStreamName" placeholder="CAM 1" required>
-        </div>
-        <div class="dialog-field">
-            <label for="dlgStreamUrl">URL</label>
-            <input type="text" id="dlgStreamUrl" placeholder="https://..." required>
-        </div>
-        <div class="dialog-actions">
-            <button type="submit" class="hw-btn hw-btn-accent">ADD</button>
-            <button type="button" class="hw-btn" id="dlgStreamCancel">CANCEL</button>
-        </div>
-    </form>
+<dialog id="streamDialog" class="bit-dialog">
+    <div class="pixel-border dialog-inner">
+        <form id="streamForm">
+            <h3>ADD SOURCE</h3>
+            <div class="dialog-field">
+                <label for="dlgStreamName">Name</label>
+                <div class="pixel-input">
+                    <input type="text" id="dlgStreamName" placeholder="CAM 1" required>
+                </div>
+            </div>
+            <div class="dialog-field">
+                <label for="dlgStreamUrl">URL</label>
+                <div class="pixel-input">
+                    <input type="text" id="dlgStreamUrl" placeholder="https://..." required>
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button type="submit" class="bit-btn bit-btn-accent">ADD</button>
+                <button type="button" class="bit-btn" id="dlgStreamCancel">CANCEL</button>
+            </div>
+        </form>
+    </div>
 </dialog>
 
 <!-- ═══ EDIT STREAM DIALOG ═══ -->
-<dialog id="editStreamDialog" class="hw-dialog">
-    <form id="editStreamForm">
-        <h3>EDIT SOURCE</h3>
-        <input type="hidden" id="editStreamId">
-        <div class="dialog-field">
-            <label for="editStreamName">Name</label>
-            <input type="text" id="editStreamName" required>
-        </div>
-        <div class="dialog-field">
-            <label for="editStreamUrl">URL</label>
-            <input type="text" id="editStreamUrl" required>
-        </div>
-        <div class="dialog-actions">
-            <button type="submit" class="hw-btn hw-btn-accent">SAVE</button>
-            <button type="button" class="hw-btn hw-btn-danger" id="editStreamDelete">DELETE</button>
-            <button type="button" class="hw-btn" id="editStreamCancel">CANCEL</button>
-        </div>
-    </form>
+<dialog id="editStreamDialog" class="bit-dialog">
+    <div class="pixel-border dialog-inner">
+        <form id="editStreamForm">
+            <h3>EDIT SOURCE</h3>
+            <input type="hidden" id="editStreamId">
+            <div class="dialog-field">
+                <label for="editStreamName">Name</label>
+                <div class="pixel-input">
+                    <input type="text" id="editStreamName" required>
+                </div>
+            </div>
+            <div class="dialog-field">
+                <label for="editStreamUrl">URL</label>
+                <div class="pixel-input">
+                    <input type="text" id="editStreamUrl" required>
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button type="submit" class="bit-btn bit-btn-accent">SAVE</button>
+                <button type="button" class="bit-btn bit-btn-danger" id="editStreamDelete">DELETE</button>
+                <button type="button" class="bit-btn" id="editStreamCancel">CANCEL</button>
+            </div>
+        </form>
+    </div>
 </dialog>
 
 <!-- ═══ PRESETS DIALOG ═══ -->
-<dialog id="presetsDialog" class="hw-dialog">
-    <h3>PRESETS</h3>
-    <div id="presetsList" class="presets-list"></div>
-    <div class="dialog-actions">
-        <button type="button" class="hw-btn" id="presetsClose">CLOSE</button>
+<dialog id="presetsDialog" class="bit-dialog">
+    <div class="pixel-border dialog-inner">
+        <h3>PRESETS</h3>
+        <div id="presetsList" class="presets-list"></div>
+        <div class="dialog-actions">
+            <button type="button" class="bit-btn" id="presetsClose">CLOSE</button>
+        </div>
     </div>
 </dialog>
 
 <!-- ═══ SAVE PRESET DIALOG ═══ -->
-<dialog id="savePresetDialog" class="hw-dialog">
-    <form id="savePresetForm">
-        <h3>SAVE PRESET</h3>
-        <div class="dialog-field">
-            <label for="presetNameInput">Preset Name</label>
-            <input type="text" id="presetNameInput" placeholder="My Setup" required>
-        </div>
-        <div class="dialog-actions">
-            <button type="submit" class="hw-btn hw-btn-accent">SAVE</button>
-            <button type="button" class="hw-btn" id="savePresetCancel">CANCEL</button>
-        </div>
-    </form>
+<dialog id="savePresetDialog" class="bit-dialog">
+    <div class="pixel-border dialog-inner">
+        <form id="savePresetForm">
+            <h3>SAVE PRESET</h3>
+            <div class="dialog-field">
+                <label for="presetNameInput">Preset Name</label>
+                <div class="pixel-input">
+                    <input type="text" id="presetNameInput" placeholder="My Setup" required>
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button type="submit" class="bit-btn bit-btn-accent">SAVE</button>
+                <button type="button" class="bit-btn" id="savePresetCancel">CANCEL</button>
+            </div>
+        </form>
+    </div>
 </dialog>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>

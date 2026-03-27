@@ -24,6 +24,11 @@ class User(UserMixin, db.Model):  # type: ignore[name-defined]
         db.DateTime, default=lambda: datetime.now(timezone.utc)
     )
 
+    # Relationships
+    streams = db.relationship("Stream", back_populates="owner", cascade="all, delete-orphan")
+    presets = db.relationship("Preset", back_populates="owner", cascade="all, delete-orphan")
+    switcher_state = db.relationship("SwitcherState", back_populates="owner", uselist=False, cascade="all, delete-orphan")
+
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
 
@@ -42,11 +47,12 @@ class LoginAttempt(db.Model):  # type: ignore[name-defined]
 
 
 class Stream(db.Model):  # type: ignore[name-defined]
-    """A video source (HLS or YouTube URL)."""
+    """A video source (HLS or YouTube URL), scoped to a user."""
 
     __tablename__ = "streams"
 
     id: int = db.Column(db.Integer, primary_key=True)
+    user_id: int = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     name: str = db.Column(db.String(120), nullable=False)
     url: str = db.Column(db.String(500), nullable=False)
     stream_type: str = db.Column(db.String(20), default="hls")  # hls | youtube
@@ -61,6 +67,8 @@ class Stream(db.Model):  # type: ignore[name-defined]
         onupdate=lambda: datetime.now(timezone.utc),
     )
 
+    owner = db.relationship("User", back_populates="streams")
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
@@ -73,18 +81,23 @@ class Stream(db.Model):  # type: ignore[name-defined]
 
 
 class Preset(db.Model):  # type: ignore[name-defined]
-    """A saved multiview configuration."""
+    """A saved multiview configuration, scoped to a user."""
 
     __tablename__ = "presets"
 
     id: int = db.Column(db.Integer, primary_key=True)
-    name: str = db.Column(db.String(80), unique=True, nullable=False)
+    user_id: int = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    name: str = db.Column(db.String(80), nullable=False)
     description: str = db.Column(db.String(200), default="")
     grid_size: int = db.Column(db.Integer, default=4)
     created_at: datetime = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc)
     )
     items = db.relationship("PresetItem", back_populates="preset", cascade="all, delete-orphan")
+    owner = db.relationship("User", back_populates="presets")
+
+    # Unique per user
+    __table_args__ = (db.UniqueConstraint("user_id", "name", name="uq_user_preset_name"),)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -116,11 +129,12 @@ class PresetItem(db.Model):  # type: ignore[name-defined]
 
 
 class SwitcherState(db.Model):  # type: ignore[name-defined]
-    """Singleton — current PGM/PVW switcher state."""
+    """Per-user PGM/PVW switcher state."""
 
     __tablename__ = "switcher_state"
 
     id: int = db.Column(db.Integer, primary_key=True)
+    user_id: int = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
     pgm_stream_id: int | None = db.Column(
         db.Integer, db.ForeignKey("streams.id"), nullable=True
     )
@@ -131,6 +145,7 @@ class SwitcherState(db.Model):  # type: ignore[name-defined]
     transition_type: str = db.Column(db.String(20), default="cut")
     transition_duration: int = db.Column(db.Integer, default=500)
 
+    owner = db.relationship("User", back_populates="switcher_state")
     pgm_stream = db.relationship("Stream", foreign_keys=[pgm_stream_id])
     pvw_stream = db.relationship("Stream", foreign_keys=[pvw_stream_id])
 
@@ -144,9 +159,11 @@ class SwitcherState(db.Model):  # type: ignore[name-defined]
         }
 
     @classmethod
-    def get(cls) -> SwitcherState:
-        """Return the singleton state row. Must be seeded at app startup."""
-        state = cls.query.first()
+    def get_for_user(cls, user_id: int) -> SwitcherState:
+        """Return the state row for a given user, creating if needed."""
+        state = cls.query.filter_by(user_id=user_id).first()
         if state is None:
-            raise RuntimeError("SwitcherState not seeded — call _seed_switcher_state() first")
+            state = cls(user_id=user_id, grid_size=4)
+            db.session.add(state)
+            db.session.commit()
         return state

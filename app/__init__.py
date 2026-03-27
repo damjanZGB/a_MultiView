@@ -46,11 +46,10 @@ def create_app(config: type = Config) -> Flask:
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(views_bp)
 
-    # Create tables & seed data
+    # Create tables & seed admin
     with app.app_context():
         db.create_all()
         _seed_admin(app)
-        _seed_switcher_state()
 
     # L1 — block startup if SECRET_KEY is default in production
     if app.config["SECRET_KEY"] == _DEFAULT_SECRET:
@@ -68,7 +67,7 @@ def _seed_admin(app: Flask) -> None:
     """Create default admin user if none exists."""
     from sqlalchemy.exc import IntegrityError
 
-    from app.models import User
+    from app.models import SwitcherState, User
 
     if User.query.filter_by(role="admin").first() is None:
         admin = User(
@@ -80,18 +79,8 @@ def _seed_admin(app: Flask) -> None:
         try:
             db.session.commit()
         except IntegrityError:
-            db.session.rollback()  # Another worker already seeded
-
-
-def _seed_switcher_state() -> None:
-    """Ensure the singleton SwitcherState row exists (H1)."""
-    from sqlalchemy.exc import IntegrityError
-
-    from app.models import SwitcherState
-
-    if SwitcherState.query.first() is None:
-        db.session.add(SwitcherState(id=1, grid_size=4))
-        try:
-            db.session.commit()
-        except IntegrityError:
             db.session.rollback()
+            return
+
+        # Create switcher state for the admin user
+        SwitcherState.get_for_user(admin.id)

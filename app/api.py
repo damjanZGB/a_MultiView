@@ -1,4 +1,4 @@
-"""REST API blueprint — streams CRUD, presets, switcher control."""
+"""REST API blueprint — streams CRUD, presets, switcher control (per-user)."""
 
 from __future__ import annotations
 
@@ -22,7 +22,6 @@ def _check_csrf() -> Response | None:
     """Validate CSRF token on mutating API requests (after auth)."""
     if request.method in ("GET", "HEAD", "OPTIONS"):
         return None
-    # Skip CSRF check if user is not authenticated — login_required will handle it
     if not current_user.is_authenticated:
         return None
     token = request.headers.get("X-CSRF-Token") or ""
@@ -33,88 +32,89 @@ def _check_csrf() -> Response | None:
         return jsonify({"error": "CSRF token missing or invalid"}), 403
     return None
 
-# ── WebSocket clients for real-time tally ──────────────────────────
-_ws_clients: list[Any] = []
-_ws_lock = threading.Lock()  # C3 — protect _ws_clients
+# ── WebSocket clients for real-time tally (per-user) ──────────────
+# Maps user_id → list of ws connections
+_ws_clients: dict[int, list[Any]] = {}
+_ws_lock = threading.Lock()
 
 
-def _broadcast_state(state: SwitcherState | None = None) -> None:
-    """Push current switcher state to all connected WebSocket clients."""
+def _broadcast_state(user_id: int, state: SwitcherState | None = None) -> None:
+    """Push current switcher state to all WebSocket clients of a given user."""
     if state is None:
-        state = SwitcherState.get()
-    # Resolve to_dict() outside the lock to avoid lazy-load queries under lock
+        state = SwitcherState.get_for_user(user_id)
     payload = json.dumps({"type": "switcher_state", "data": state.to_dict()})
     with _ws_lock:
+        clients = _ws_clients.get(user_id, [])
         alive: list[Any] = []
-        for ws in _ws_clients:
+        for ws in clients:
             try:
                 ws.send(payload)
                 alive.append(ws)
             except Exception:
                 pass
-        _ws_clients[:] = alive
+        _ws_clients[user_id] = alive
 
 
 @sock.route("/ws/tally")
 def tally_ws(ws: Any) -> None:
     """WebSocket endpoint for real-time tally/state updates."""
-    # C2 — require authentication
     if not current_user.is_authenticated:
         ws.close()
         return
 
+    uid = current_user.id
     with _ws_lock:
-        _ws_clients.append(ws)
+        _ws_clients.setdefault(uid, []).append(ws)
     try:
-        # Send initial state
-        state = SwitcherState.get()
+        state = SwitcherState.get_for_user(uid)
         ws.send(json.dumps({"type": "switcher_state", "data": state.to_dict()}))
-        # Keep alive — client can send pings
         while True:
             msg = ws.receive(timeout=30)
             if msg is None:
                 break
     except (ConnectionError, OSError, Exception) as e:
         if "ConnectionClosed" in type(e).__name__ or isinstance(e, (ConnectionError, OSError)):
-            pass  # Normal client disconnect
+            pass
         else:
             logger.exception("Unexpected WebSocket error in tally_ws")
     finally:
         with _ws_lock:
-            if ws in _ws_clients:
-                _ws_clients.remove(ws)
+            clients = _ws_clients.get(uid, [])
+            if ws in clients:
+                clients.remove(ws)
 
 
-# ── Streams CRUD ───────────────────────────────────────────────────
+# ── Streams CRUD (per-user) ──────────────────────────────────────
 
 @api_bp.route("/streams", methods=["GET"])
 @login_required
 def list_streams() -> Response:
-    """List all streams ordered by position."""
-    streams = Stream.query.order_by(Stream.position).all()
+    """List current user's streams ordered by position."""
+    streams = Stream.query.filter_by(user_id=current_user.id).order_by(Stream.position).all()
     return jsonify({"streams": [s.to_dict() for s in streams]}), 200
 
 
 @api_bp.route("/streams", methods=["POST"])
 @login_required
 def create_stream() -> Response:
-    """Create a new stream source."""
-    # M2 — enforce MAX_STREAMS
-    if Stream.query.count() >= current_app.config["MAX_STREAMS"]:
+    """Create a new stream source for current user."""
+    count = Stream.query.filter_by(user_id=current_user.id).count()
+    if count >= current_app.config["MAX_STREAMS"]:
         return jsonify({"error": f"Maximum of {current_app.config['MAX_STREAMS']} streams reached"}), 400
 
     data = request.get_json(silent=True)
     if not data or not data.get("name") or not data.get("url"):
         return jsonify({"error": "name and url are required"}), 400
 
-    # Auto-detect stream type
     url = str(data["url"]).strip()
     stream_type = "youtube" if _is_youtube(url) else "hls"
 
-    # Next position
-    max_pos = db.session.query(db.func.max(Stream.position)).scalar() or 0
+    max_pos = db.session.query(db.func.max(Stream.position)).filter(
+        Stream.user_id == current_user.id
+    ).scalar() or 0
 
     stream = Stream(
+        user_id=current_user.id,
         name=str(data["name"]).strip(),
         url=url,
         stream_type=stream_type,
@@ -129,9 +129,9 @@ def create_stream() -> Response:
 @api_bp.route("/streams/<int:stream_id>", methods=["GET"])
 @login_required
 def get_stream(stream_id: int) -> Response:
-    """Get a single stream."""
+    """Get a single stream (must belong to current user)."""
     stream = db.session.get(Stream, stream_id)
-    if not stream:
+    if not stream or stream.user_id != current_user.id:
         return jsonify({"error": "Not found"}), 404
     return jsonify(stream.to_dict()), 200
 
@@ -139,9 +139,9 @@ def get_stream(stream_id: int) -> Response:
 @api_bp.route("/streams/<int:stream_id>", methods=["PUT"])
 @login_required
 def update_stream(stream_id: int) -> Response:
-    """Update a stream."""
+    """Update a stream (must belong to current user)."""
     stream = db.session.get(Stream, stream_id)
-    if not stream:
+    if not stream or stream.user_id != current_user.id:
         return jsonify({"error": "Not found"}), 404
 
     data = request.get_json(silent=True) or {}
@@ -159,20 +159,19 @@ def update_stream(stream_id: int) -> Response:
         stream.is_active = bool(data["is_active"])
 
     db.session.commit()
-    _broadcast_state()
+    _broadcast_state(current_user.id)
     return jsonify(stream.to_dict()), 200
 
 
 @api_bp.route("/streams/<int:stream_id>", methods=["DELETE"])
 @login_required
 def delete_stream(stream_id: int) -> Response:
-    """Delete a stream."""
+    """Delete a stream (must belong to current user)."""
     stream = db.session.get(Stream, stream_id)
-    if not stream:
+    if not stream or stream.user_id != current_user.id:
         return jsonify({"error": "Not found"}), 404
 
-    # Clear from switcher if active
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     if state.pgm_stream_id == stream_id:
         state.pgm_stream_id = None
     if state.pvw_stream_id == stream_id:
@@ -180,27 +179,27 @@ def delete_stream(stream_id: int) -> Response:
 
     db.session.delete(stream)
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
     return jsonify({"status": "deleted"}), 200
 
 
-# ── Switcher Control ───────────────────────────────────────────────
+# ── Switcher Control (per-user) ──────────────────────────────────
 
 @api_bp.route("/switcher/state", methods=["GET"])
 @login_required
 def switcher_state() -> Response:
-    """Get current PGM/PVW state."""
-    state = SwitcherState.get()
+    """Get current user's PGM/PVW state."""
+    state = SwitcherState.get_for_user(current_user.id)
     return jsonify(state.to_dict()), 200
 
 
 def _set_bus(bus: str, stream_id: int | None) -> Response:
     """Set a switcher bus (pgm or pvw) to the given stream."""
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     resolved_id = None
     if stream_id is not None:
         stream = db.session.get(Stream, int(stream_id))
-        if not stream:
+        if not stream or stream.user_id != current_user.id:
             return jsonify({"error": "Stream not found"}), 404
         resolved_id = stream.id
 
@@ -212,7 +211,7 @@ def _set_bus(bus: str, stream_id: int | None) -> Response:
         return jsonify({"error": "Invalid bus"}), 400
 
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
     return jsonify(state.to_dict()), 200
 
 
@@ -236,13 +235,13 @@ def set_pvw() -> Response:
 @login_required
 def switcher_cut() -> Response:
     """CUT — instantly swap PGM and PVW."""
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     state.pgm_stream_id, state.pvw_stream_id = (
         state.pvw_stream_id,
         state.pgm_stream_id,
     )
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
     return jsonify(state.to_dict()), 200
 
 
@@ -250,13 +249,13 @@ def switcher_cut() -> Response:
 @login_required
 def switcher_auto() -> Response:
     """AUTO — transition PVW to PGM (client handles visual transition)."""
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     state.pgm_stream_id, state.pvw_stream_id = (
         state.pvw_stream_id,
         state.pgm_stream_id,
     )
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
     return jsonify({
         **state.to_dict(),
         "transition": "auto",
@@ -267,8 +266,8 @@ def switcher_auto() -> Response:
 @api_bp.route("/switcher/settings", methods=["GET"])
 @login_required
 def get_switcher_settings() -> Response:
-    """Get switcher settings."""
-    state = SwitcherState.get()
+    """Get current user's switcher settings."""
+    state = SwitcherState.get_for_user(current_user.id)
     return jsonify({
         "grid_size": state.grid_size,
         "transition_type": state.transition_type,
@@ -279,11 +278,10 @@ def get_switcher_settings() -> Response:
 @api_bp.route("/switcher/settings", methods=["PUT"])
 @login_required
 def update_switcher_settings() -> Response:
-    """Update switcher settings."""
+    """Update current user's switcher settings."""
     data = request.get_json(silent=True) or {}
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
 
-    # L3 — guard int() casts
     if "grid_size" in data:
         try:
             grid = int(data["grid_size"])
@@ -301,17 +299,17 @@ def update_switcher_settings() -> Response:
         state.transition_duration = max(100, min(5000, duration))
 
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
     return jsonify(state.to_dict()), 200
 
 
-# ── Presets ────────────────────────────────────────────────────────
+# ── Presets (per-user) ────────────────────────────────────────────
 
 @api_bp.route("/presets", methods=["GET"])
 @login_required
 def list_presets() -> Response:
-    """List all presets."""
-    presets = Preset.query.order_by(Preset.name).all()
+    """List current user's presets."""
+    presets = Preset.query.filter_by(user_id=current_user.id).order_by(Preset.name).all()
     return jsonify({"presets": [p.to_dict() for p in presets]}), 200
 
 
@@ -324,11 +322,12 @@ def create_preset() -> Response:
     if not name:
         return jsonify({"error": "name is required"}), 400
 
-    if Preset.query.filter_by(name=name).first():
+    if Preset.query.filter_by(user_id=current_user.id, name=name).first():
         return jsonify({"error": "Preset already exists"}), 409
 
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     preset = Preset(
+        user_id=current_user.id,
         name=name,
         description=str(data.get("description", "")),
         grid_size=state.grid_size,
@@ -336,7 +335,6 @@ def create_preset() -> Response:
     db.session.add(preset)
     db.session.flush()
 
-    # Save stream assignments — M4: validate position field
     items = data.get("items", [])
     for item in items:
         position = item.get("position")
@@ -362,9 +360,9 @@ def create_preset() -> Response:
 @api_bp.route("/presets/<int:preset_id>", methods=["DELETE"])
 @login_required
 def delete_preset(preset_id: int) -> Response:
-    """Delete a preset."""
+    """Delete a preset (must belong to current user)."""
     preset = db.session.get(Preset, preset_id)
-    if not preset:
+    if not preset or preset.user_id != current_user.id:
         return jsonify({"error": "Not found"}), 404
     db.session.delete(preset)
     db.session.commit()
@@ -376,13 +374,13 @@ def delete_preset(preset_id: int) -> Response:
 def load_preset(preset_id: int) -> Response:
     """Load a preset into the current multiview."""
     preset = db.session.get(Preset, preset_id)
-    if not preset:
+    if not preset or preset.user_id != current_user.id:
         return jsonify({"error": "Not found"}), 404
 
-    state = SwitcherState.get()
+    state = SwitcherState.get_for_user(current_user.id)
     state.grid_size = preset.grid_size
     db.session.commit()
-    _broadcast_state(state)
+    _broadcast_state(current_user.id, state)
 
     return jsonify(preset.to_dict()), 200
 

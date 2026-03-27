@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}a_MultiView — Login{% endblock %}
+{% block title %}a_MultiView — Register{% endblock %}
 {% block body_class %}login-page{% endblock %}
 
 {% block body %}
 <div class="login-box pixel-border">
     <div class="logo-big">a_<span class="logo-accent">MultiView</span></div>
+    <div class="register-title">CREATE ACCOUNT</div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
@@ -12,7 +13,7 @@
         {% endfor %}
     {% endwith %}
 
-    <form method="POST" action="{{ url_for('auth.login') }}">
+    <form method="POST" action="{{ url_for('auth.register') }}">
         <input type="hidden" name="csrf_token" value="{{ session.get('csrf_token', '') }}">
         <div class="dialog-field">
             <label for="username">Username</label>
@@ -23,14 +24,20 @@
         <div class="dialog-field">
             <label for="password">Password</label>
             <div class="pixel-input">
-                <input type="password" id="password" name="password" autocomplete="current-password" required>
+                <input type="password" id="password" name="password" autocomplete="new-password" required>
             </div>
         </div>
-        <button type="submit" class="bit-btn bit-btn-accent">LOGIN</button>
+        <div class="dialog-field">
+            <label for="password_confirm">Confirm Password</label>
+            <div class="pixel-input">
+                <input type="password" id="password_confirm" name="password_confirm" autocomplete="new-password" required>
+            </div>
+        </div>
+        <button type="submit" class="bit-btn bit-btn-accent">REGISTER</button>
     </form>
 
     <div class="register-link">
-        No account? <a href="{{ url_for('auth.register') }}">REGISTER</a>
+        Already have an account? <a href="{{ url_for('auth.login') }}">LOGIN</a>
     </div>
 </div>
 {% endblock %}

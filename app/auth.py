@@ -9,7 +9,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 from flask_login import current_user, login_required, login_user, logout_user
 
 from app.extensions import db
-from app.models import LoginAttempt, User
+from app.models import LoginAttempt, SwitcherState, User
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -46,18 +46,17 @@ def login() -> Response:
         return redirect(url_for("views.director"))
 
     if request.method == "GET":
-        # M5 — generate CSRF token for the form
         session["csrf_token"] = secrets.token_hex(32)
 
     if request.method == "POST":
-        # M5 — validate CSRF token
+        # Validate CSRF token
         token = request.form.get("csrf_token", "")
         if not token or token != session.pop("csrf_token", None):
             flash("Invalid form submission", "error")
             session["csrf_token"] = secrets.token_hex(32)
             return render_template("login.html")
 
-        # H2 — rate limiting
+        # Rate limiting
         client_ip = request.remote_addr or "unknown"
         if _is_rate_limited(client_ip):
             flash("Too many failed attempts. Please wait and try again.", "error")
@@ -73,7 +72,9 @@ def login() -> Response:
             login_user(user, remember=True)
             # Regenerate CSRF token for API calls in the authenticated session
             session["csrf_token"] = secrets.token_hex(32)
-            # C1 — validate next param is a safe relative URL
+            # Ensure user has a switcher state row
+            SwitcherState.get_for_user(user.id)
+            # Validate next param is a safe relative URL
             next_page = request.args.get("next", "")
             if not next_page or not next_page.startswith("/") or next_page.startswith("//"):
                 next_page = url_for("views.director")
@@ -93,3 +94,63 @@ def logout() -> Response:
     resp = redirect(url_for("auth.login"))
     resp.delete_cookie("session", path="/")
     return resp
+
+
+@auth_bp.route("/register", methods=["GET", "POST"])
+def register() -> Response:
+    """Handle user registration."""
+    if current_user.is_authenticated:
+        return redirect(url_for("views.director"))
+
+    if request.method == "GET":
+        session["csrf_token"] = secrets.token_hex(32)
+
+    if request.method == "POST":
+        token = request.form.get("csrf_token", "")
+        if not token or token != session.pop("csrf_token", None):
+            flash("Invalid form submission", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        password_confirm = request.form.get("password_confirm", "")
+
+        if not username or not password:
+            flash("Username and password are required", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        if len(username) < 3 or len(username) > 30:
+            flash("Username must be 3-30 characters", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        if len(password) < 4:
+            flash("Password must be at least 4 characters", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        if password != password_confirm:
+            flash("Passwords do not match", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        if User.query.filter_by(username=username).first():
+            flash("Username already taken", "error")
+            session["csrf_token"] = secrets.token_hex(32)
+            return render_template("register.html")
+
+        user = User(username=username, role="operator")
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+
+        # Create switcher state for the new user
+        SwitcherState.get_for_user(user.id)
+
+        login_user(user, remember=True)
+        session["csrf_token"] = secrets.token_hex(32)
+        return redirect(url_for("views.director"))
+
+    return render_template("register.html")
